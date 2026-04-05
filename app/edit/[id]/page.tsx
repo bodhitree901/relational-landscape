@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Connection, CategoryRatings, SubcategoryRating, TimeRhythm, Category } from '../../lib/types';
+import { Connection, CategoryRatings, SubcategoryRating, Category } from '../../lib/types';
 import { getConnection, saveConnection, getCategoriesWithCustom, addCustomSubcategory } from '../../lib/storage';
-import EmojiPicker from '../../components/EmojiPicker';
+import ColorPicker from '../../components/ColorPicker';
 import CategoryStep from '../../components/CategoryStep';
-import TimeRhythmStep from '../../components/TimeRhythmStep';
 
-type Step = 'name' | 'category' | 'time';
+type Step = 'name' | 'category';
 
 export default function EditConnection() {
   const params = useParams();
@@ -18,13 +17,8 @@ export default function EditConnection() {
   const [step, setStep] = useState<Step>('name');
   const [categoryIndex, setCategoryIndex] = useState(0);
   const [name, setName] = useState('');
-  const [emoji, setEmoji] = useState('');
+  const [color, setColor] = useState('#C5A3CF');
   const [categoryRatings, setCategoryRatings] = useState<CategoryRatings[]>([]);
-  const [timeRhythm, setTimeRhythm] = useState<TimeRhythm>({
-    communication: [],
-    inPerson: [],
-    custom: [],
-  });
 
   useEffect(() => {
     setCategories(getCategoriesWithCustom());
@@ -32,9 +26,8 @@ export default function EditConnection() {
     if (c) {
       setConnection(c);
       setName(c.name);
-      setEmoji(c.emoji);
+      setColor(c.color || c.emoji || '#C5A3CF');
       setCategoryRatings(c.categories);
-      setTimeRhythm(c.timeRhythm);
     } else {
       router.push('/');
     }
@@ -42,7 +35,7 @@ export default function EditConnection() {
 
   if (!connection || categories.length === 0) return null;
 
-  const totalSteps = categories.length + 2;
+  const totalSteps = categories.length + 1;
 
   const handleNameSubmit = () => {
     if (!name.trim()) return;
@@ -59,44 +52,39 @@ export default function EditConnection() {
       }
     });
 
-    setCategoryRatings((prev) => {
-      const existing = prev.filter((c) => c.categoryId !== cat.id);
-      if (ratings.length > 0) {
-        return [...existing, { categoryId: cat.id, ratings }];
-      }
-      return existing;
-    });
+    const updatedRatings = categoryRatings.filter((c) => c.categoryId !== cat.id);
+    if (ratings.length > 0) {
+      updatedRatings.push({ categoryId: cat.id, ratings });
+    }
+    setCategoryRatings(updatedRatings);
 
     if (categoryIndex < categories.length - 1) {
       setCategoryIndex(categoryIndex + 1);
     } else {
-      setStep('time');
+      // Save
+      const updated: Connection = {
+        ...connection,
+        name: name.trim(),
+        emoji: color,
+        color: color,
+        categories: updatedRatings,
+      };
+      saveConnection(updated);
+      router.push(`/connection/${connection.id}`);
     }
-  };
-
-  const handleTimeComplete = (data: TimeRhythm) => {
-    const updated: Connection = {
-      ...connection,
-      name: name.trim(),
-      emoji: emoji || '💛',
-      categories: categoryRatings,
-      timeRhythm: data,
-    };
-    saveConnection(updated);
-    router.push(`/connection/${connection.id}`);
   };
 
   if (step === 'name') {
     return (
       <div className="page-enter flex flex-col min-h-dvh">
         <div className="px-5 pt-5 pb-3">
-          <button onClick={() => router.push(`/connection/${connection.id}`)} className="text-sm opacity-60 hover:opacity-100 transition-opacity">
-            &larr; Cancel
+          <button onClick={() => router.back()} className="text-sm opacity-60 hover:opacity-100 transition-opacity">
+            &larr; Back
           </button>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center px-8">
           <h1 className="text-2xl font-semibold mb-8 text-center">Edit Connection</h1>
-          <EmojiPicker value={emoji} onChange={setEmoji} />
+          <ColorPicker value={color} onChange={setColor} />
           <input
             type="text"
             value={name}
@@ -110,7 +98,7 @@ export default function EditConnection() {
             onClick={handleNameSubmit}
             disabled={!name.trim()}
             className="mt-8 px-8 py-3 rounded-2xl text-white font-medium transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-30"
-            style={{ background: 'var(--peach)' }}
+            style={{ background: color }}
           >
             Continue Editing
           </button>
@@ -135,26 +123,19 @@ export default function EditConnection() {
           }}
           onSkip={() => {
             if (categoryIndex < categories.length - 1) setCategoryIndex(categoryIndex + 1);
-            else setStep('time');
+            else {
+              const updated: Connection = {
+                ...connection,
+                name: name.trim(),
+                emoji: color,
+                color: color,
+                categories: categoryRatings,
+              };
+              saveConnection(updated);
+              router.push(`/connection/${connection.id}`);
+            }
           }}
           stepNumber={categoryIndex + 2}
-          totalSteps={totalSteps}
-        />
-      </div>
-    );
-  }
-
-  if (step === 'time') {
-    return (
-      <div className="min-h-dvh flex flex-col">
-        <TimeRhythmStep
-          initialData={timeRhythm}
-          onComplete={handleTimeComplete}
-          onBack={() => {
-            setCategoryIndex(categories.length - 1);
-            setStep('category');
-          }}
-          stepNumber={totalSteps}
           totalSteps={totalSteps}
         />
       </div>

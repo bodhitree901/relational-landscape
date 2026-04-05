@@ -33,9 +33,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
       'Co-owning',
       'Power of Attorney',
       'Marriage / Civil Partnership',
-      'Shared Collaborations',
-      'Creative',
-      'Academic',
+      'Creative Collaborations',
+      'Academic Collaborations',
       'Adoption',
       'Shared Finances / Meal Sharing',
       'Legal Processes',
@@ -72,6 +71,26 @@ export const DEFAULT_CATEGORIES: Category[] = [
     ],
   },
   {
+    id: 'time-rhythm',
+    name: 'Time & Rhythm',
+    color: '#A8C5A0',
+    watercolorClass: 'watercolor-sage',
+    subcategories: [
+      'Daily texting',
+      'A few times a week',
+      'Weekly check-ins',
+      'Monthly catch-ups',
+      'Sporadic communication',
+      'Recurring scheduled calls',
+      'Live together',
+      'See each other weekly',
+      'A few times a month',
+      'A few times a year',
+      'Seasonal trips',
+      'Seasonal living',
+    ],
+  },
+  {
     id: 'frames',
     name: 'Frames',
     color: '#F2B5B5',
@@ -99,25 +118,4 @@ export const DEFAULT_CATEGORIES: Category[] = [
       'Facilitator & Participant',
     ],
   },
-];
-
-export const COMMUNICATION_OPTIONS = [
-  'Daily texting',
-  'A few times a week',
-  'Weekly',
-  'Monthly',
-  'Sporadic',
-  'Barely',
-  'Recurring scheduled calls',
-];
-
-export const IN_PERSON_OPTIONS = [
-  'Live together',
-  'See each other weekly',
-  'A few times a month',
-  'Monthly',
-  'A few times a year',
-  'Rarely / Never',
-  'Seasonal trips',
-  'Seasonal living',
 ];

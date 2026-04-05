@@ -5,11 +5,10 @@ import { useRouter } from 'next/navigation';
 import { Connection, CategoryRatings, SubcategoryRating, TimeRhythm, Category } from '../lib/types';
 import { getCategoriesWithCustom, addCustomSubcategory } from '../lib/storage';
 import { saveConnection } from '../lib/storage';
-import EmojiPicker from '../components/EmojiPicker';
+import ColorPicker from '../components/ColorPicker';
 import CategoryStep from '../components/CategoryStep';
-import TimeRhythmStep from '../components/TimeRhythmStep';
 
-type Step = 'name' | 'category' | 'time' | 'done';
+type Step = 'name' | 'category';
 
 export default function NewConnection() {
   const router = useRouter();
@@ -17,19 +16,14 @@ export default function NewConnection() {
   const [step, setStep] = useState<Step>('name');
   const [categoryIndex, setCategoryIndex] = useState(0);
   const [name, setName] = useState('');
-  const [emoji, setEmoji] = useState('');
+  const [color, setColor] = useState('#C5A3CF');
   const [categoryRatings, setCategoryRatings] = useState<CategoryRatings[]>([]);
-  const [timeRhythm, setTimeRhythm] = useState<TimeRhythm>({
-    communication: [],
-    inPerson: [],
-    custom: [],
-  });
 
   useEffect(() => {
     setCategories(getCategoriesWithCustom());
   }, []);
 
-  const totalSteps = categories.length + 2; // categories + time + name
+  const totalSteps = categories.length + 1; // categories + name
 
   const handleNameSubmit = () => {
     if (!name.trim()) return;
@@ -59,7 +53,23 @@ export default function NewConnection() {
     if (categoryIndex < categories.length - 1) {
       setCategoryIndex(categoryIndex + 1);
     } else {
-      setStep('time');
+      // Last category — save
+      const updatedRatings = [...categoryRatings.filter((c) => c.categoryId !== cat.id)];
+      if (ratings.length > 0) {
+        updatedRatings.push({ categoryId: cat.id, ratings });
+      }
+      const connection: Connection = {
+        id: crypto.randomUUID(),
+        name: name.trim(),
+        emoji: color,
+        color: color,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        categories: updatedRatings,
+        timeRhythm: { communication: [], inPerson: [], custom: [] },
+      };
+      saveConnection(connection);
+      router.push(`/connection/${connection.id}`);
     }
   };
 
@@ -75,24 +85,20 @@ export default function NewConnection() {
     if (categoryIndex < categories.length - 1) {
       setCategoryIndex(categoryIndex + 1);
     } else {
-      setStep('time');
+      // Last category — save with current ratings
+      const connection: Connection = {
+        id: crypto.randomUUID(),
+        name: name.trim(),
+        emoji: color,
+        color: color,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        categories: categoryRatings,
+        timeRhythm: { communication: [], inPerson: [], custom: [] },
+      };
+      saveConnection(connection);
+      router.push(`/connection/${connection.id}`);
     }
-  };
-
-  const handleTimeComplete = (data: TimeRhythm) => {
-    setTimeRhythm(data);
-    // Save the connection
-    const connection: Connection = {
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      emoji: emoji || '💛',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      categories: categoryRatings,
-      timeRhythm: data,
-    };
-    saveConnection(connection);
-    router.push(`/connection/${connection.id}`);
   };
 
   if (categories.length === 0) return null;
@@ -107,7 +113,7 @@ export default function NewConnection() {
         </div>
         <div className="flex-1 flex flex-col items-center justify-center px-8">
           <h1 className="text-2xl font-semibold mb-8 text-center">New Connection</h1>
-          <EmojiPicker value={emoji} onChange={setEmoji} />
+          <ColorPicker value={color} onChange={setColor} />
           <input
             type="text"
             value={name}
@@ -121,7 +127,7 @@ export default function NewConnection() {
             onClick={handleNameSubmit}
             disabled={!name.trim()}
             className="mt-8 px-8 py-3 rounded-2xl text-white font-medium transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-30"
-            style={{ background: 'var(--peach)' }}
+            style={{ background: color }}
           >
             Begin Mapping
           </button>
@@ -143,23 +149,6 @@ export default function NewConnection() {
           onBack={handleCategoryBack}
           onSkip={handleCategorySkip}
           stepNumber={categoryIndex + 2}
-          totalSteps={totalSteps}
-        />
-      </div>
-    );
-  }
-
-  if (step === 'time') {
-    return (
-      <div className="min-h-dvh flex flex-col">
-        <TimeRhythmStep
-          initialData={timeRhythm}
-          onComplete={handleTimeComplete}
-          onBack={() => {
-            setCategoryIndex(categories.length - 1);
-            setStep('category');
-          }}
-          stepNumber={totalSteps}
           totalSteps={totalSteps}
         />
       </div>

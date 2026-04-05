@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Connection, Tier } from '../lib/types';
+import { ConnectionCircle } from './ColorPicker';
 
 function getTopItems(connection: Connection): { label: string; tier: Tier }[] {
   return connection.categories
@@ -13,6 +14,7 @@ function getTopItems(connection: Connection): { label: string; tier: Tier }[] {
 
 export default function ConnectionCard({ connection }: { connection: Connection }) {
   const topItems = getTopItems(connection);
+  const color = connection.color || connection.emoji || '#C5A3CF';
 
   return (
     <Link
@@ -20,7 +22,7 @@ export default function ConnectionCard({ connection }: { connection: Connection 
       className="watercolor-card block p-5 bg-white/60 hover:bg-white/80 transition-all active:scale-[0.98]"
     >
       <div className="flex items-center gap-3 mb-3">
-        <span className="text-2xl">{connection.emoji}</span>
+        <ConnectionCircle color={color} size={36} />
         <h3 className="text-lg font-semibold">{connection.name}</h3>
       </div>
       {topItems.length > 0 ? (

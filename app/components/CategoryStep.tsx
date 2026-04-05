@@ -82,7 +82,7 @@ export default function CategoryStep({
             &larr; Back
           </button>
           <span className="text-xs opacity-50">{stepNumber} / {totalSteps}</span>
-          <button onClick={onSkip} className="text-sm opacity-60 hover:opacity-100 transition-opacity">
+          <button onClick={() => onComplete(ratings)} className="text-sm opacity-60 hover:opacity-100 transition-opacity">
             Skip &rarr;
           </button>
         </div>

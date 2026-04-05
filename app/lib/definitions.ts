@@ -20,9 +20,8 @@ export const SUBCATEGORY_DEFINITIONS: Record<string, string> = {
   'Co-owning': 'Owning property or assets together — a house, car, business, or other shared ownership',
   'Power of Attorney': 'Legal authority to make decisions on each other\'s behalf — medical, financial, or legal',
   'Marriage / Civil Partnership': 'A formal legal union — marriage, civil partnership, domestic partnership',
-  'Shared Collaborations': 'Working on projects together — creative, professional, or community endeavors',
-  'Creative': 'Making art, music, writing, or other creative work together',
-  'Academic': 'Learning or studying together in a formal educational context',
+  'Creative Collaborations': 'Making art, music, writing, or building creative projects together',
+  'Academic Collaborations': 'Learning, studying, or researching together in an educational or intellectual context',
   'Adoption': 'Formally adopting children together or being part of an adoption process',
   'Shared Finances / Meal Sharing': 'Pooling resources for daily life — grocery sharing, cooking together, splitting costs',
   'Legal Processes': 'Navigating legal systems together — immigration, custody, contracts, wills',
@@ -44,6 +43,20 @@ export const SUBCATEGORY_DEFINITIONS: Record<string, string> = {
   'Shared Community': 'Belonging to the same communities — friend groups, neighborhoods, scenes, networks',
   'Shared Learning': 'Growing knowledge together — taking classes, reading the same books, teaching each other',
   'Shared Adventure': 'Exploring the world together — travel, road trips, trying new things, stepping into the unknown',
+
+  // Time & Rhythm
+  'Daily texting': 'You message each other most days — a steady stream of connection through words',
+  'A few times a week': 'Regular but not daily — enough to stay in each other\'s lives without being constant',
+  'Weekly check-ins': 'A weekly rhythm of catching up — intentional or organic, but reliable',
+  'Monthly catch-ups': 'You connect about once a month — enough to maintain the thread, with space in between',
+  'Sporadic communication': 'No set pattern — you reach out when it feels right, sometimes with long gaps',
+  'Recurring scheduled calls': 'You have a standing call or video date — a chosen ritual of connection',
+  'Live together': 'You share a home — daily proximity, woven into each other\'s routines',
+  'See each other weekly': 'You spend time together in person most weeks',
+  'A few times a month': 'You see each other a couple times a month — regular but not constant',
+  'A few times a year': 'Your in-person time is more rare — but often more intentional because of it',
+  'Seasonal trips': 'You travel or gather together at certain times of year — a seasonal ritual',
+  'Seasonal living': 'You live together or near each other during specific seasons — a migration pattern of connection',
 
   // Frames
   'Friendship': 'A bond built on mutual affection, trust, and chosen connection — the foundation of many relationships',

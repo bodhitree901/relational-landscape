@@ -28,7 +28,8 @@ export interface TimeRhythm {
 export interface Connection {
   id: string;
   name: string;
-  emoji: string;
+  emoji: string; // kept for backward compat, but now stores color hex
+  color?: string; // the circle color
   createdAt: string;
   updatedAt: string;
   categories: CategoryRatings[];

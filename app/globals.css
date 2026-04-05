@@ -93,6 +93,16 @@ body {
   );
 }
 
+.watercolor-sage {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 197, 160, 0.15) 0%,
+    rgba(168, 197, 160, 0.08) 40%,
+    rgba(168, 197, 160, 0.2) 60%,
+    rgba(168, 197, 160, 0.05) 100%
+  );
+}
+
 /* Watercolor edge effect for cards */
 .watercolor-card {
   position: relative;

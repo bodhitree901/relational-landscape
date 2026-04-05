@@ -5,11 +5,12 @@ import Link from 'next/link';
 import { Connection, Tier } from '../lib/types';
 import { getConnections } from '../lib/storage';
 import { DEFAULT_CATEGORIES } from '../lib/categories';
+import { ConnectionCircle } from '../components/ColorPicker';
 
 interface SubcategoryCount {
   subcategory: string;
   categoryId: string;
-  connections: { name: string; emoji: string; tier: Tier }[];
+  connections: { name: string; color: string; tier: Tier }[];
 }
 
 function getSubcategoryCounts(connections: Connection[]): SubcategoryCount[] {
@@ -24,7 +25,7 @@ function getSubcategoryCounts(connections: Connection[]): SubcategoryCount[] {
         }
         map.get(key)!.connections.push({
           name: conn.name,
-          emoji: conn.emoji,
+          color: conn.color || conn.emoji || '#C5A3CF',
           tier: rating.tier,
         });
       }
@@ -144,14 +145,14 @@ export default function PatternsPage() {
                       }}
                     />
                   </div>
-                  <div className="flex -space-x-1 ml-2">
+                  <div className="flex -space-x-1.5 ml-2">
                     {item.connections.slice(0, 4).map((c, i) => (
-                      <span key={i} className="text-xs" title={c.name}>
-                        {c.emoji}
-                      </span>
+                      <div key={i} title={c.name}>
+                        <ConnectionCircle color={c.color} size={16} />
+                      </div>
                     ))}
                     {item.connections.length > 4 && (
-                      <span className="text-xs opacity-40">+{item.connections.length - 4}</span>
+                      <span className="text-xs opacity-40 ml-1">+{item.connections.length - 4}</span>
                     )}
                   </div>
                 </div>
@@ -203,7 +204,7 @@ export default function PatternsPage() {
                       href={`/connection/${conn.id}`}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/50 text-sm hover:bg-white/80 transition-colors"
                     >
-                      <span>{conn.emoji}</span>
+                      <ConnectionCircle color={conn.color || conn.emoji || '#C5A3CF'} size={18} />
                       <span>{conn.name}</span>
                     </Link>
                   ))}

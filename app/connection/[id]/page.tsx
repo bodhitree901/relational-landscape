@@ -8,6 +8,7 @@ import { DEFAULT_CATEGORIES } from '../../lib/categories';
 import { analyzeConnection } from '../../lib/analysis';
 import { generateShareUrl } from '../../lib/sharing';
 import WordCloud from '../../components/WordCloud';
+import { ConnectionCircle } from '../../components/ColorPicker';
 import Link from 'next/link';
 
 function getCategoryById(id: string) {
@@ -52,7 +53,8 @@ function shortenLabel(label: string): string {
     'Spiritual / Religious': 'Spirituality',
     'Sexual Interactions': 'Sexual',
     'Sensual Interactions': 'Sensuality',
-    'Shared Collaborations': 'Collaboration',
+    'Creative Collaborations': 'Creative',
+    'Academic Collaborations': 'Academic',
     'Shared Community': 'Community',
     'Shared Adventure': 'Adventure',
     'Shared Learning': 'Learning',
@@ -124,10 +126,10 @@ export default function ConnectionProfile() {
 
   return (
     <div className="page-enter min-h-dvh pb-8">
-      {/* Header with share */}
+      {/* Header — edit goes back, home on right */}
       <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-        <Link href="/" className="text-sm opacity-60 hover:opacity-100 transition-opacity">
-          &larr; Home
+        <Link href={`/edit/${connection.id}`} className="text-sm opacity-60 hover:opacity-100 transition-opacity">
+          &larr; Edit
         </Link>
         <div className="flex items-center gap-3">
           <button
@@ -140,16 +142,16 @@ export default function ConnectionProfile() {
           >
             {copied ? 'Copied!' : 'Share'}
           </button>
-          <Link href={`/edit/${connection.id}`} className="text-sm opacity-60 hover:opacity-100 transition-opacity">
-            Edit
+          <Link href="/" className="text-sm opacity-60 hover:opacity-100 transition-opacity">
+            Home
           </Link>
         </div>
       </div>
 
       {/* Identity */}
-      <div className="text-center px-5 pt-4 pb-6">
-        <span className="text-4xl mb-3 block">{connection.emoji}</span>
-        <h1 className="text-2xl font-semibold">{connection.name}</h1>
+      <div className="flex flex-col items-center px-5 pt-4 pb-6">
+        <ConnectionCircle color={connection.color || connection.emoji || '#C5A3CF'} size={56} />
+        <h1 className="text-2xl font-semibold mt-3">{connection.name}</h1>
         {definingWords.length > 0 && (
           <p className="mt-2 text-sm opacity-45 italic tracking-wide">
             {definingWords.join(' · ')}
@@ -232,47 +234,6 @@ export default function ConnectionProfile() {
           );
         })}
       </div>
-
-      {/* Time & Rhythm */}
-      {(connection.timeRhythm.communication.length > 0 ||
-        connection.timeRhythm.inPerson.length > 0 ||
-        connection.timeRhythm.custom.length > 0) && (
-        <div className="mx-5 watercolor-card bg-white/50 p-4 mb-6">
-          <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--sage)' }}>
-            Time & Rhythm
-          </h3>
-          {connection.timeRhythm.communication.length > 0 && (
-            <div className="mb-2">
-              <p className="text-xs opacity-40 mb-1">Communication</p>
-              <div className="flex flex-wrap gap-1.5">
-                {connection.timeRhythm.communication.map((c) => (
-                  <span key={c} className="text-xs px-2.5 py-1 rounded-full bg-sage/15">{c}</span>
-                ))}
-              </div>
-            </div>
-          )}
-          {connection.timeRhythm.inPerson.length > 0 && (
-            <div className="mb-2">
-              <p className="text-xs opacity-40 mb-1">In Person</p>
-              <div className="flex flex-wrap gap-1.5">
-                {connection.timeRhythm.inPerson.map((c) => (
-                  <span key={c} className="text-xs px-2.5 py-1 rounded-full bg-sage/15">{c}</span>
-                ))}
-              </div>
-            </div>
-          )}
-          {connection.timeRhythm.custom.length > 0 && (
-            <div>
-              <p className="text-xs opacity-40 mb-1">Custom</p>
-              <div className="flex flex-wrap gap-1.5">
-                {connection.timeRhythm.custom.map((c) => (
-                  <span key={c} className="text-xs px-2.5 py-1 rounded-full bg-sage/15">{c}</span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Share info (collapsible, subtle) */}
       <div className="mx-5 mb-6">
