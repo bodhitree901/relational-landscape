@@ -1,0 +1,79 @@
+'use client';
+
+import { Connection } from './types';
+
+// Encode a connection to a shareable string (base64 JSON, compressed)
+export function encodeConnection(connection: Connection): string {
+  const slim = {
+    n: connection.name,
+    e: connection.emoji,
+    c: connection.categories.map((cat) => ({
+      i: cat.categoryId,
+      r: cat.ratings.map((r) => ({
+        s: r.subcategory,
+        t: r.tier[0], // just first letter: p, s, r, c
+      })),
+    })),
+    t: {
+      c: connection.timeRhythm.communication,
+      p: connection.timeRhythm.inPerson,
+      x: connection.timeRhythm.custom,
+    },
+  };
+  const json = JSON.stringify(slim);
+  // Use base64 encoding
+  if (typeof window !== 'undefined') {
+    return btoa(unescape(encodeURIComponent(json)));
+  }
+  return Buffer.from(json).toString('base64');
+}
+
+// Decode a shareable string back into a Connection
+export function decodeConnection(encoded: string): Connection | null {
+  try {
+    let json: string;
+    if (typeof window !== 'undefined') {
+      json = decodeURIComponent(escape(atob(encoded)));
+    } else {
+      json = Buffer.from(encoded, 'base64').toString();
+    }
+    const slim = JSON.parse(json);
+
+    const tierMap: Record<string, 'potential' | 'sometimes' | 'rhythm' | 'core'> = {
+      p: 'potential',
+      s: 'sometimes',
+      r: 'rhythm',
+      c: 'core',
+    };
+
+    return {
+      id: crypto.randomUUID(),
+      name: slim.n,
+      emoji: slim.e,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      categories: slim.c.map((cat: { i: string; r: { s: string; t: string }[] }) => ({
+        categoryId: cat.i,
+        ratings: cat.r.map((r: { s: string; t: string }) => ({
+          subcategory: r.s,
+          tier: tierMap[r.t] || 'sometimes',
+        })),
+      })),
+      timeRhythm: {
+        communication: slim.t?.c || [],
+        inPerson: slim.t?.p || [],
+        custom: slim.t?.x || [],
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function generateShareUrl(connection: Connection): string {
+  const encoded = encodeConnection(connection);
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/compare?profile=${encodeURIComponent(encoded)}`;
+  }
+  return `/compare?profile=${encodeURIComponent(encoded)}`;
+}
