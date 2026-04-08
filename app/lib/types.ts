@@ -43,3 +43,11 @@ export interface Category {
   watercolorClass: string;
   subcategories: string[];
 }
+
+export interface SharedComparison {
+  id: string;
+  myConnectionId: string; // links to the original connection on person A's device
+  myProfile: Connection;
+  theirProfile: Connection;
+  savedAt: string;
+}

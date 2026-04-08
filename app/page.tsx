@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Connection } from './lib/types';
 import { getConnections } from './lib/storage';
 import ConnectionCard from './components/ConnectionCard';
+import AuthButton from './components/AuthButton';
 
 export default function Home() {
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -21,10 +22,19 @@ export default function Home() {
           Relational Landscape
         </h1>
         <p className="text-sm opacity-50">Map the shape of your connections</p>
+        <div className="mt-3">
+          <AuthButton />
+        </div>
       </div>
 
       {/* Quick links */}
-      <div className="px-5 flex gap-3 mb-6">
+      <div className="px-5 flex gap-3 mb-4">
+        <Link
+          href="/menu"
+          className="flex-1 watercolor-card watercolor-peach p-4 text-center text-sm font-medium hover:opacity-80 transition-opacity"
+        >
+          My Menu
+        </Link>
         <Link
           href="/patterns"
           className="flex-1 watercolor-card watercolor-lavender p-4 text-center text-sm font-medium hover:opacity-80 transition-opacity"

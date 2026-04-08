@@ -77,3 +77,13 @@ export function generateShareUrl(connection: Connection): string {
   }
   return `/compare?profile=${encodeURIComponent(encoded)}`;
 }
+
+// Generate a return URL that person B sends back to person A with both profiles
+export function generateReturnUrl(theirProfile: Connection, myProfile: Connection): string {
+  const theirs = encodeConnection(theirProfile);
+  const mine = encodeConnection(myProfile);
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/compare?profile=${encodeURIComponent(theirs)}&reply=${encodeURIComponent(mine)}`;
+  }
+  return `/compare?profile=${encodeURIComponent(theirs)}&reply=${encodeURIComponent(mine)}`;
+}

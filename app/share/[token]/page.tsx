@@ -1,93 +1,74 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { Connection, CategoryRatings, SubcategoryRating, Tier, Category, SharedComparison } from '../lib/types';
-import { decodeConnection, generateReturnUrl } from '../lib/sharing';
-import { getCategoriesWithCustom, addCustomSubcategory, getConnections, saveSharedComparison } from '../lib/storage';
-import { analyzeOverlap, OverlapResult } from '../lib/analysis';
-import ChipPool, { ChipRating } from '../components/ChipPool';
-import { CONNECTION_TIERS } from '../lib/tier-configs';
-import InstructionOverlay from '../components/InstructionOverlay';
-import ColorPicker, { ConnectionCircle } from '../components/ColorPicker';
-import WordCloud from '../components/WordCloud';
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { Connection, CategoryRatings, SubcategoryRating, Tier, Category } from '../../lib/types';
+import { getCategoriesWithCustom, addCustomSubcategory } from '../../lib/storage';
+import { analyzeOverlap, OverlapResult } from '../../lib/analysis';
+import { getInvitationByToken, submitResponse, snapshotToConnection } from '../../lib/supabase/invitations';
+import type { ProfileSnapshot } from '../../lib/supabase/types';
+import ChipPool, { ChipRating } from '../../components/ChipPool';
+import { CONNECTION_TIERS } from '../../lib/tier-configs';
+import InstructionOverlay from '../../components/InstructionOverlay';
+import ColorPicker, { ConnectionCircle } from '../../components/ColorPicker';
+import WordCloud from '../../components/WordCloud';
 import Link from 'next/link';
 
-function CompareContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
+type Step = 'loading' | 'error' | 'intro' | 'name' | 'instructions' | 'category' | 'submitting' | 'results';
+
+export default function SharePage() {
+  const params = useParams();
+  const token = params.token as string;
+
+  const [step, setStep] = useState<Step>('loading');
+  const [invitation, setInvitation] = useState<{
+    id: string;
+    profile_snapshot: ProfileSnapshot;
+    status: string;
+  } | null>(null);
   const [theirProfile, setTheirProfile] = useState<Connection | null>(null);
-  const [replyProfile, setReplyProfile] = useState<Connection | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [step, setStep] = useState<'intro' | 'name' | 'instructions' | 'category' | 'results'>('intro');
   const [categoryIndex, setCategoryIndex] = useState(0);
   const [myName, setMyName] = useState('');
   const [myColor, setMyColor] = useState('#89CFF0');
   const [myCategoryRatings, setMyCategoryRatings] = useState<CategoryRatings[]>([]);
   const [myConnection, setMyConnection] = useState<Connection | null>(null);
   const [overlap, setOverlap] = useState<OverlapResult | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [matchedConnectionId, setMatchedConnectionId] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState('');
 
+  // Fetch invitation on mount
   useEffect(() => {
-    const profileParam = searchParams.get('profile');
-    const replyParam = searchParams.get('reply');
-
-    if (profileParam) {
-      const decoded = decodeConnection(profileParam);
-      if (decoded) setTheirProfile(decoded);
-    }
-
-    if (replyParam) {
-      // This is a return link — person B's reply is included
-      const decodedReply = decodeConnection(replyParam);
-      if (decodedReply) setReplyProfile(decodedReply);
-    }
-
-    setCategories(getCategoriesWithCustom());
-  }, [searchParams]);
-
-  // When we have both profiles from a return URL, jump straight to results
-  useEffect(() => {
-    if (theirProfile && replyProfile) {
-      // "theirProfile" is actually MY original profile (person A), "replyProfile" is person B
-      // Try to find my original connection in localStorage
-      const myConnections = getConnections();
-      const match = myConnections.find(
-        (c) => c.name === theirProfile.name &&
-        c.categories.length === theirProfile.categories.length
-      );
-      if (match) {
-        setMatchedConnectionId(match.id);
+    async function load() {
+      try {
+        const inv = await getInvitationByToken(token);
+        if (!inv) {
+          setStep('error');
+          return;
+        }
+        if (inv.status === 'completed') {
+          setStep('error');
+          return;
+        }
+        setInvitation(inv);
+        const snapshot = inv.profile_snapshot as unknown as ProfileSnapshot;
+        setTheirProfile(snapshotToConnection(snapshot));
+        setStep('intro');
+      } catch {
+        setStep('error');
       }
-
-      // Show results: my original profile vs their reply
-      setMyConnection(theirProfile);
-      setOverlap(analyzeOverlap(theirProfile, replyProfile));
-      setStep('results');
     }
-  }, [theirProfile, replyProfile]);
+    load();
+    setCategories(getCategoriesWithCustom());
+  }, [token]);
 
   const totalSteps = categories.length + 1;
-
-  if (!theirProfile) {
-    return (
-      <div className="min-h-dvh flex flex-col items-center justify-center px-8 text-center">
-        <p className="text-lg opacity-40 mb-4">Invalid or missing profile link</p>
-        <Link href="/" className="text-sm opacity-60 hover:opacity-100 underline">Go home</Link>
-      </div>
-    );
-  }
-
-  const handleStartMapping = () => setStep('name');
 
   const handleNameSubmit = () => {
     if (!myName.trim()) return;
     setStep('instructions');
   };
 
-  const handleCategoryComplete = (chipRatings: ChipRating[]) => {
+  const handleCategoryComplete = async (chipRatings: ChipRating[]) => {
     const cat = categories[categoryIndex];
     const ratings: SubcategoryRating[] = chipRatings.map((r) => ({
       subcategory: r.item,
@@ -106,59 +87,76 @@ function CompareContent() {
     if (categoryIndex < categories.length - 1) {
       setCategoryIndex(categoryIndex + 1);
     } else {
-      const mine: Connection = {
-        id: crypto.randomUUID(),
-        name: myName.trim(),
-        emoji: myColor,
-        color: myColor,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        categories: updatedRatings,
-        timeRhythm: { communication: [], inPerson: [], custom: [] },
-      };
-      setMyConnection(mine);
-      setOverlap(analyzeOverlap(mine, theirProfile));
-      setStep('results');
+      await finishAndSubmit(updatedRatings);
     }
   };
 
-  // Person B's "Share back" — copy return URL
-  const handleShareBack = async () => {
-    if (!myConnection || !theirProfile) return;
-    // Generate return URL: theirProfile (person A's original) + myConnection (person B's side)
-    const url = generateReturnUrl(theirProfile, myConnection);
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch {
-      const textarea = document.createElement('textarea');
-      textarea.value = url;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    }
-  };
-
-  // Person A saves the comparison to their dashboard
-  const handleSaveComparison = () => {
-    if (!myConnection || !replyProfile) return;
-    const comparison: SharedComparison = {
+  const finishAndSubmit = async (finalRatings: CategoryRatings[]) => {
+    const mine: Connection = {
       id: crypto.randomUUID(),
-      myConnectionId: matchedConnectionId || myConnection.id,
-      myProfile: myConnection,
-      theirProfile: replyProfile,
-      savedAt: new Date().toISOString(),
+      name: myName.trim(),
+      emoji: myColor,
+      color: myColor,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      categories: finalRatings,
+      timeRhythm: { communication: [], inPerson: [], custom: [] },
     };
-    saveSharedComparison(comparison);
-    setSaved(true);
+    setMyConnection(mine);
+    setStep('submitting');
+
+    // Submit to Supabase
+    if (invitation) {
+      const result = await submitResponse(
+        invitation.id,
+        myName.trim(),
+        myColor,
+        mine
+      );
+      if (!result.success) {
+        setSubmitError(result.error || 'Something went wrong');
+      }
+    }
+
+    // Show results regardless
+    if (theirProfile) {
+      setOverlap(analyzeOverlap(mine, theirProfile));
+    }
+    setStep('results');
   };
 
-  // Intro — person B sees person A's profile
-  if (step === 'intro' && !replyProfile) {
+  // Loading
+  if (step === 'loading') {
+    return (
+      <div className="min-h-dvh flex items-center justify-center">
+        <p className="text-sm opacity-40">Loading...</p>
+      </div>
+    );
+  }
+
+  // Error
+  if (step === 'error') {
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center px-8 text-center">
+        <p className="text-lg opacity-40 mb-2">
+          {invitation?.status === 'completed'
+            ? 'This link has already been used'
+            : 'Invalid or expired link'}
+        </p>
+        <p className="text-sm opacity-30 mb-6">
+          {invitation?.status === 'completed'
+            ? 'Someone already responded to this invitation.'
+            : 'The link might be broken or no longer valid.'}
+        </p>
+        <Link href="/" className="text-sm opacity-60 hover:opacity-100 underline">
+          Go to Relational Landscape
+        </Link>
+      </div>
+    );
+  }
+
+  // Intro — Person B sees Person A's profile
+  if (step === 'intro' && theirProfile) {
     const theirRatings = theirProfile.categories.flatMap((c) => c.ratings);
     const theirCore = theirRatings.filter((r) => r.tier === 'core').map((r) => r.subcategory);
     const theirRhythm = theirRatings.filter((r) => r.tier === 'rhythm').map((r) => r.subcategory);
@@ -206,14 +204,14 @@ function CompareContent() {
 
         <div className="px-5">
           <button
-            onClick={handleStartMapping}
+            onClick={() => setStep('name')}
             className="w-full py-3 rounded-2xl text-white font-medium text-base transition-all hover:opacity-90 active:scale-[0.98]"
             style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
           >
             Map your side of this connection
           </button>
           <p className="text-center text-xs opacity-30 mt-3">
-            Fill out how you see it, then see where you overlap
+            No account needed — just fill it out and see where you overlap
           </p>
         </div>
       </div>
@@ -221,7 +219,7 @@ function CompareContent() {
   }
 
   // Name step
-  if (step === 'name') {
+  if (step === 'name' && theirProfile) {
     return (
       <div className="page-enter flex flex-col min-h-dvh">
         <div className="px-5 pt-5 pb-3">
@@ -257,7 +255,7 @@ function CompareContent() {
     );
   }
 
-  // Instructions overlay (person B sees this before categories too)
+  // Instructions
   if (step === 'instructions') {
     return (
       <div className="min-h-dvh flex flex-col">
@@ -295,25 +293,26 @@ function CompareContent() {
     );
   }
 
-  // Results
-  if (step === 'results' && overlap && myConnection) {
-    const myClr = myConnection.color || myConnection.emoji || '#89CFF0';
-    // When it's a return URL, "theirProfile" is actually person A's original, and "replyProfile" is person B
-    // When person B just finished, "theirProfile" is person A's, "myConnection" is person B's
-    const otherProfile = replyProfile || theirProfile;
-    const otherColor = otherProfile.color || otherProfile.emoji || '#C5A3CF';
-    const isReturnView = !!replyProfile;
+  // Submitting
+  if (step === 'submitting') {
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center px-8">
+        <div className="w-8 h-8 rounded-full border-2 border-[var(--lavender)] border-t-transparent animate-spin mb-4" />
+        <p className="text-sm opacity-50">Sending your response...</p>
+      </div>
+    );
+  }
 
-    // In return view: Person A sees their own selections (labeled under connection name)
-    // vs Person B's reply. Use "You" for Person A's side, Person B's name for theirs.
-    const myDisplayName = isReturnView ? 'You' : myConnection.name;
-    const otherDisplayName = isReturnView ? replyProfile.name : otherProfile.name;
+  // Results
+  if (step === 'results' && overlap && myConnection && theirProfile) {
+    const myClr = myConnection.color || myConnection.emoji || '#89CFF0';
+    const theirColor = theirProfile.color || theirProfile.emoji || '#C5A3CF';
 
     return (
       <div className="page-enter min-h-dvh pb-8">
         <div className="px-5 pt-5 pb-3">
           <Link href="/" className="text-sm opacity-60 hover:opacity-100 transition-opacity">
-            &larr; Home
+            Relational Landscape &rarr;
           </Link>
         </div>
 
@@ -321,13 +320,27 @@ function CompareContent() {
           <div className="flex items-center gap-4 mb-3">
             <ConnectionCircle color={myClr} size={44} />
             <span className="text-lg opacity-20">&</span>
-            <ConnectionCircle color={otherColor} size={44} />
+            <ConnectionCircle color={theirColor} size={44} />
           </div>
           <h1 className="text-2xl font-semibold">
-            {isReturnView ? `${myConnection.name} & ${replyProfile.name}` : `${myConnection.name} & ${otherProfile.name}`}
+            {myConnection.name} & {theirProfile.name}
           </h1>
           <p className="text-sm opacity-50 mt-1">Where you overlap</p>
         </div>
+
+        {/* Success message */}
+        {!submitError && (
+          <div className="mx-5 mb-6 watercolor-card p-4 text-center" style={{ background: 'rgba(139,190,140,0.12)' }}>
+            <p className="text-sm font-medium opacity-70">Your response has been sent to {theirProfile.name}</p>
+            <p className="text-xs opacity-40 mt-1">It will appear on their dashboard automatically</p>
+          </div>
+        )}
+        {submitError && (
+          <div className="mx-5 mb-6 watercolor-card watercolor-rose p-4 text-center">
+            <p className="text-sm opacity-70">Couldn&rsquo;t send — but here are your results</p>
+            <p className="text-xs opacity-40 mt-1">{submitError}</p>
+          </div>
+        )}
 
         {overlap.sharedCore.length > 0 && (
           <div className="mx-5 watercolor-card watercolor-rose p-4 mb-3">
@@ -376,7 +389,7 @@ function CompareContent() {
         <div className="mx-5 flex gap-3 mb-6 mt-4">
           {overlap.uniqueToMe.length > 0 && (
             <div className="flex-1 watercolor-card bg-white/50 p-4">
-              <p className="text-xs font-medium opacity-40 mb-2">Only {myDisplayName.toLowerCase() === 'you' ? 'you' : myDisplayName} named</p>
+              <p className="text-xs font-medium opacity-40 mb-2">Only you named</p>
               <div className="flex flex-wrap gap-1.5">
                 {overlap.uniqueToMe.map((u) => (
                   <span key={u.sub} className="text-xs px-2 py-1 rounded-full bg-black/5">{u.sub}</span>
@@ -386,7 +399,7 @@ function CompareContent() {
           )}
           {overlap.uniqueToThem.length > 0 && (
             <div className="flex-1 watercolor-card bg-white/50 p-4">
-              <p className="text-xs font-medium opacity-40 mb-2">Only {otherDisplayName} named</p>
+              <p className="text-xs font-medium opacity-40 mb-2">Only {theirProfile.name} named</p>
               <div className="flex flex-wrap gap-1.5">
                 {overlap.uniqueToThem.map((u) => (
                   <span key={u.sub} className="text-xs px-2 py-1 rounded-full bg-black/5">{u.sub}</span>
@@ -409,89 +422,21 @@ function CompareContent() {
           <div className="watercolor-card bg-white/50 p-4">
             <div className="flex items-center gap-2 mb-2 justify-center">
               <ConnectionCircle color={myClr} size={16} />
-              <p className="text-xs font-medium opacity-40">{isReturnView ? 'Your view' : `${myConnection.name}\u2019s view`}</p>
+              <p className="text-xs font-medium opacity-40">Your view</p>
             </div>
             <WordCloud connection={myConnection} />
           </div>
           <div className="watercolor-card bg-white/50 p-4">
             <div className="flex items-center gap-2 mb-2 justify-center">
-              <ConnectionCircle color={otherColor} size={16} />
-              <p className="text-xs font-medium opacity-40">{otherDisplayName}&rsquo;s view</p>
+              <ConnectionCircle color={theirColor} size={16} />
+              <p className="text-xs font-medium opacity-40">{theirProfile.name}&rsquo;s view</p>
             </div>
-            <WordCloud connection={otherProfile} />
+            <WordCloud connection={theirProfile} />
           </div>
-        </div>
-
-        {/* Share back button (person B just finished) or Save button (person A viewing return) */}
-        <div className="mx-5 space-y-3 mb-6">
-          {isReturnView ? (
-            // Person A is viewing the return link — offer to save
-            <>
-              <button
-                onClick={handleSaveComparison}
-                disabled={saved}
-                className="w-full py-3 rounded-2xl text-white font-medium text-base transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
-                style={{
-                  background: saved
-                    ? 'var(--sage)'
-                    : 'linear-gradient(135deg, var(--peach), var(--lavender))',
-                }}
-              >
-                {saved ? 'Saved to your dashboard' : 'Save this comparison'}
-              </button>
-              {saved && (
-                <p className="text-center text-xs opacity-40">
-                  You can find it on {myConnection.name}&rsquo;s profile page
-                </p>
-              )}
-            </>
-          ) : (
-            // Person B just finished — offer to share back
-            <>
-              <div className="watercolor-card bg-white/50 p-5 text-center">
-                <h3
-                  className="text-base font-semibold mb-2"
-                  style={{ fontFamily: 'Georgia, serif' }}
-                >
-                  Share your side back
-                </h3>
-                <p className="text-xs opacity-50 leading-relaxed mb-4">
-                  Send this link to {theirProfile.name} so they can see where you overlap.
-                  Everything stays on-device — no accounts, no servers.
-                </p>
-                <button
-                  onClick={handleShareBack}
-                  className="px-8 py-3 rounded-2xl text-white font-medium text-base transition-all hover:opacity-90 active:scale-[0.98]"
-                  style={{
-                    background: copied
-                      ? 'var(--sage)'
-                      : 'linear-gradient(135deg, var(--peach), var(--lavender))',
-                  }}
-                >
-                  {copied ? 'Link copied!' : 'Copy share-back link'}
-                </button>
-              </div>
-              <p className="text-center text-xs opacity-30">
-                When {theirProfile.name} opens this link, they&rsquo;ll see your overlap and can save it
-              </p>
-            </>
-          )}
         </div>
       </div>
     );
   }
 
   return null;
-}
-
-export default function ComparePage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-dvh flex items-center justify-center">
-        <p className="text-sm opacity-40">Loading...</p>
-      </div>
-    }>
-      <CompareContent />
-    </Suspense>
-  );
 }

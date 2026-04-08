@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Connection, CategoryRatings, SubcategoryRating, TimeRhythm, Category } from '../lib/types';
+import { Connection, CategoryRatings, SubcategoryRating, Tier, Category } from '../lib/types';
 import { getCategoriesWithCustom, addCustomSubcategory } from '../lib/storage';
 import { saveConnection } from '../lib/storage';
 import ColorPicker from '../components/ColorPicker';
-import CategoryStep from '../components/CategoryStep';
+import ChipPool, { ChipRating } from '../components/ChipPool';
+import { CONNECTION_TIERS } from '../lib/tier-configs';
+import InstructionOverlay from '../components/InstructionOverlay';
 
-type Step = 'name' | 'category';
+type Step = 'name' | 'instructions' | 'category';
 
 export default function NewConnection() {
   const router = useRouter();
@@ -27,12 +29,17 @@ export default function NewConnection() {
 
   const handleNameSubmit = () => {
     if (!name.trim()) return;
-    setStep('category');
-    setCategoryIndex(0);
+    setStep('instructions');
   };
 
-  const handleCategoryComplete = (ratings: SubcategoryRating[]) => {
+  const handleCategoryComplete = (chipRatings: ChipRating[]) => {
     const cat = categories[categoryIndex];
+
+    // Convert ChipRating[] to SubcategoryRating[]
+    const ratings: SubcategoryRating[] = chipRatings.map((r) => ({
+      subcategory: r.item,
+      tier: r.tierId as Tier,
+    }));
 
     // Persist any custom subcategories
     const defaults = new Set(cat.subcategories);
@@ -81,26 +88,6 @@ export default function NewConnection() {
     }
   };
 
-  const handleCategorySkip = () => {
-    if (categoryIndex < categories.length - 1) {
-      setCategoryIndex(categoryIndex + 1);
-    } else {
-      // Last category — save with current ratings
-      const connection: Connection = {
-        id: crypto.randomUUID(),
-        name: name.trim(),
-        emoji: color,
-        color: color,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        categories: categoryRatings,
-        timeRhythm: { communication: [], inPerson: [], custom: [] },
-      };
-      saveConnection(connection);
-      router.push(`/connection/${connection.id}`);
-    }
-  };
-
   if (categories.length === 0) return null;
 
   if (step === 'name') {
@@ -136,18 +123,32 @@ export default function NewConnection() {
     );
   }
 
+  if (step === 'instructions') {
+    return (
+      <div className="min-h-dvh flex flex-col">
+        <InstructionOverlay onDismiss={() => { setStep('category'); setCategoryIndex(0); }} />
+      </div>
+    );
+  }
+
   if (step === 'category') {
     const cat = categories[categoryIndex];
     const existingRatings = categoryRatings.find((c) => c.categoryId === cat.id)?.ratings || [];
+    const initialChipRatings: ChipRating[] = existingRatings.map((r) => ({
+      item: r.subcategory,
+      tierId: r.tier,
+    }));
     return (
       <div className="min-h-dvh flex flex-col">
-        <CategoryStep
+        <ChipPool
           key={cat.id}
-          category={cat}
-          initialRatings={existingRatings}
+          items={cat.subcategories}
+          categoryColor={cat.color}
+          tiers={CONNECTION_TIERS}
+          initialRatings={initialChipRatings}
           onComplete={handleCategoryComplete}
           onBack={handleCategoryBack}
-          onSkip={handleCategorySkip}
+          categoryName={cat.name}
           stepNumber={categoryIndex + 2}
           totalSteps={totalSteps}
         />

@@ -13,7 +13,7 @@ const CATEGORY_NAMES: Record<string, string> = {
   'social': 'Social',
   'time-rhythm': 'Time & Rhythm',
   'frames': 'Frames',
-  'qualities': 'Qualities',
+  'qualities': 'Dynamics',
 };
 
 function getCategoryName(id: string): string {
@@ -212,7 +212,7 @@ export function analyzeConnection(connection: Connection): AnalysisResult {
       `You stay in regular contact, which keeps the connection warm and present even between in-person moments.`,
       `The communication rhythm here is steady — this isn't a connection that goes dormant between meetings.`,
     ]));
-  } else if (timeCore.some(t => ['Sporadic communication'].includes(t))) {
+  } else if (timeCore.some(t => ['Organic / Intermittent'].includes(t))) {
     paragraphs.push(pick(rng, [
       `The communication here is more sporadic — this might be a connection that thrives on quality over quantity, coming alive when you're together.`,
       `You don't talk constantly, and that's fine. Some connections are like underground rivers — invisible much of the time, but always flowing.`,

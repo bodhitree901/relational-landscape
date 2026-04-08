@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Connection, TIER_LABELS, TIER_ORDER } from '../../lib/types';
-import { getConnection, deleteConnection } from '../../lib/storage';
+import { Connection, SharedComparison, TIER_LABELS, TIER_ORDER } from '../../lib/types';
+import { getConnection, deleteConnection, getSharedComparisonForConnection } from '../../lib/storage';
 import { DEFAULT_CATEGORIES } from '../../lib/categories';
-import { analyzeConnection } from '../../lib/analysis';
+import { analyzeConnection, analyzeOverlap } from '../../lib/analysis';
 import { generateShareUrl } from '../../lib/sharing';
+import { createInvitation, getShareUrl, getResponseForConnection, snapshotToConnection } from '../../lib/supabase/invitations';
+import type { ProfileSnapshot } from '../../lib/supabase/types';
+import { useAuth } from '../../components/AuthProvider';
 import WordCloud from '../../components/WordCloud';
 import { ConnectionCircle } from '../../components/ColorPicker';
 import Link from 'next/link';
@@ -67,12 +70,15 @@ function shortenLabel(label: string): string {
     'Intellectual Connection': 'Intellectual',
     'Feeds Self Growth': 'Growth',
     'Attachment Figure': 'Attachment',
+    'Partnership': 'Partnership',
+    'Collaborator': 'Collaborator',
     'Romantic Love': 'Romance',
-    'Sex and Eros': 'Eros',
     'Sense of Humor': 'Humor',
     'Hand Buddies': 'Hand Touch',
-    'Hand Holding': 'Hand Holding',
     'Sleeping Buddies': 'Co-Sleeping',
+    'Organic / Intermittent': 'Organic',
+    'From time to time': 'Occasional',
+    'Occasional visits': 'Occasional Visits',
     'Dance Buddies': 'Dance',
     'Support Person': 'Support',
     'Power of Attorney': 'Legal Trust',
@@ -83,16 +89,50 @@ function shortenLabel(label: string): string {
 export default function ConnectionProfile() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const [connection, setConnection] = useState<Connection | null>(null);
   const [showDelete, setShowDelete] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [showShareInfo, setShowShareInfo] = useState(false);
+  const [sharedComparison, setSharedComparison] = useState<SharedComparison | null>(null);
+  const [supabaseResponse, setSupabaseResponse] = useState<{
+    responderName: string;
+    responderColor: string;
+    myProfile: Connection;
+    theirProfile: Connection;
+  } | null>(null);
+  const [showComparison, setShowComparison] = useState(false);
 
   useEffect(() => {
     const c = getConnection(params.id as string);
-    if (c) setConnection(c);
-    else router.push('/');
+    if (c) {
+      setConnection(c);
+      // Check localStorage comparisons (legacy)
+      const comp = getSharedComparisonForConnection(c.id);
+      if (comp) setSharedComparison(comp);
+    } else {
+      router.push('/');
+    }
   }, [params.id, router]);
+
+  // Check Supabase for responses when authenticated
+  useEffect(() => {
+    if (!user || !connection) return;
+    getResponseForConnection(user.id, connection.id).then((data) => {
+      if (data && data.responses && data.responses.length > 0) {
+        const resp = data.responses[0];
+        const myProfile = snapshotToConnection(data.profile_snapshot as unknown as ProfileSnapshot, connection.id);
+        const theirProfile = snapshotToConnection(resp.response_data as unknown as ProfileSnapshot);
+        setSupabaseResponse({
+          responderName: resp.responder_name,
+          responderColor: resp.responder_color || '#89CFF0',
+          myProfile,
+          theirProfile,
+        });
+      }
+    });
+  }, [user, connection]);
 
   if (!connection) return null;
 
@@ -107,11 +147,30 @@ export default function ConnectionProfile() {
   };
 
   const handleShare = async () => {
-    const url = generateShareUrl(connection);
+    // Use Supabase sharing when authenticated, fallback to base64 URL
+    if (user) {
+      setSharing(true);
+      try {
+        const result = await createInvitation(user.id, connection.id, connection);
+        if ('token' in result) {
+          const url = getShareUrl(result.token);
+          await copyToClipboard(url);
+        } else {
+          // Fallback to old method
+          await copyToClipboard(generateShareUrl(connection));
+        }
+      } catch {
+        await copyToClipboard(generateShareUrl(connection));
+      }
+      setSharing(false);
+    } else {
+      await copyToClipboard(generateShareUrl(connection));
+    }
+  };
+
+  const copyToClipboard = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
     } catch {
       const textarea = document.createElement('textarea');
       textarea.value = url;
@@ -119,18 +178,18 @@ export default function ConnectionProfile() {
       textarea.select();
       document.execCommand('copy');
       document.body.removeChild(textarea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
     }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   return (
     <div className="page-enter min-h-dvh pb-8">
       {/* Header — edit goes back, home on right */}
       <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-        <Link href={`/edit/${connection.id}`} className="text-sm opacity-60 hover:opacity-100 transition-opacity">
-          &larr; Edit
-        </Link>
+        <button onClick={() => router.back()} className="text-sm opacity-60 hover:opacity-100 transition-opacity">
+          &larr; Back
+        </button>
         <div className="flex items-center gap-3">
           <button
             onClick={handleShare}
@@ -140,7 +199,7 @@ export default function ConnectionProfile() {
               color: copied ? 'white' : '#3D3532',
             }}
           >
-            {copied ? 'Copied!' : 'Share'}
+            {copied ? 'Copied!' : sharing ? '...' : 'Share'}
           </button>
           <Link href="/" className="text-sm opacity-60 hover:opacity-100 transition-opacity">
             Home
@@ -235,6 +294,165 @@ export default function ConnectionProfile() {
         })}
       </div>
 
+      {/* Shared comparison (if person B replied) */}
+      {sharedComparison && (() => {
+        const comp = sharedComparison;
+        const overlapData = analyzeOverlap(comp.myProfile, comp.theirProfile);
+        const theirColor = comp.theirProfile.color || comp.theirProfile.emoji || '#C5A3CF';
+        const totalShared = overlapData.sharedCore.length + overlapData.sharedRhythm.length +
+          overlapData.sharedSometimes.length + overlapData.sharedPotential.length;
+        return (
+          <div className="mx-5 mb-6">
+            <button
+              onClick={() => setShowComparison(!showComparison)}
+              className="w-full watercolor-card p-4 text-left transition-all active:scale-[0.99]"
+              style={{ background: 'linear-gradient(135deg, rgba(197,163,207,0.1), rgba(137,207,240,0.1))' }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center -space-x-2">
+                    <ConnectionCircle color={connection.color || connection.emoji || '#C5A3CF'} size={28} />
+                    <ConnectionCircle color={theirColor} size={28} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Shared view with {comp.theirProfile.name}</p>
+                    <p className="text-xs opacity-40">
+                      {totalShared} overlap{totalShared !== 1 ? 's' : ''} · {overlapData.sharedCore.length} core
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs opacity-30">{showComparison ? '▲' : '▼'}</span>
+              </div>
+            </button>
+            {showComparison && (
+              <div className="mt-3 space-y-3">
+                {overlapData.sharedCore.length > 0 && (
+                  <div className="watercolor-card watercolor-rose p-3">
+                    <p className="text-xs opacity-40 mb-1.5">Both see as core</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {overlapData.sharedCore.map((s) => (
+                        <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-rose/25 font-medium">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {overlapData.sharedRhythm.length > 0 && (
+                  <div className="watercolor-card watercolor-blue p-3">
+                    <p className="text-xs opacity-40 mb-1.5">Shared rhythm</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {overlapData.sharedRhythm.map((s) => (
+                        <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-blue/20">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {(overlapData.uniqueToMe.length > 0 || overlapData.uniqueToThem.length > 0) && (
+                  <div className="flex gap-2">
+                    {overlapData.uniqueToMe.length > 0 && (
+                      <div className="flex-1 watercolor-card bg-white/50 p-3">
+                        <p className="text-xs opacity-35 mb-1.5">Only you named</p>
+                        <div className="flex flex-wrap gap-1">
+                          {overlapData.uniqueToMe.slice(0, 6).map((u) => (
+                            <span key={u.sub} className="text-xs px-2 py-0.5 rounded-full bg-black/5">{u.sub}</span>
+                          ))}
+                          {overlapData.uniqueToMe.length > 6 && (
+                            <span className="text-xs opacity-30">+{overlapData.uniqueToMe.length - 6}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {overlapData.uniqueToThem.length > 0 && (
+                      <div className="flex-1 watercolor-card bg-white/50 p-3">
+                        <p className="text-xs opacity-35 mb-1.5">Only {comp.theirProfile.name}</p>
+                        <div className="flex flex-wrap gap-1">
+                          {overlapData.uniqueToThem.slice(0, 6).map((u) => (
+                            <span key={u.sub} className="text-xs px-2 py-0.5 rounded-full bg-black/5">{u.sub}</span>
+                          ))}
+                          {overlapData.uniqueToThem.length > 6 && (
+                            <span className="text-xs opacity-30">+{overlapData.uniqueToThem.length - 6}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="watercolor-card watercolor-lavender p-4">
+                  <div className="space-y-2">
+                    {overlapData.overlapSummary.split('\n\n').slice(0, 2).map((p, i) => (
+                      <p key={i} className="text-xs leading-relaxed opacity-65">{p}</p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Supabase response (if person B replied via /share/[token]) */}
+      {supabaseResponse && !sharedComparison && (() => {
+        const { myProfile, theirProfile, responderName, responderColor } = supabaseResponse;
+        const overlapData = analyzeOverlap(myProfile, theirProfile);
+        const totalShared = overlapData.sharedCore.length + overlapData.sharedRhythm.length +
+          overlapData.sharedSometimes.length + overlapData.sharedPotential.length;
+        return (
+          <div className="mx-5 mb-6">
+            <button
+              onClick={() => setShowComparison(!showComparison)}
+              className="w-full watercolor-card p-4 text-left transition-all active:scale-[0.99]"
+              style={{ background: 'linear-gradient(135deg, rgba(197,163,207,0.1), rgba(137,207,240,0.1))' }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center -space-x-2">
+                    <ConnectionCircle color={connection.color || connection.emoji || '#C5A3CF'} size={28} />
+                    <ConnectionCircle color={responderColor} size={28} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Shared view with {responderName}</p>
+                    <p className="text-xs opacity-40">
+                      {totalShared} overlap{totalShared !== 1 ? 's' : ''} · {overlapData.sharedCore.length} core
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs opacity-30">{showComparison ? '▲' : '▼'}</span>
+              </div>
+            </button>
+            {showComparison && (
+              <div className="mt-3 space-y-3">
+                {overlapData.sharedCore.length > 0 && (
+                  <div className="watercolor-card watercolor-rose p-3">
+                    <p className="text-xs opacity-40 mb-1.5">Both see as core</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {overlapData.sharedCore.map((s) => (
+                        <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-rose/25 font-medium">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {overlapData.sharedRhythm.length > 0 && (
+                  <div className="watercolor-card watercolor-blue p-3">
+                    <p className="text-xs opacity-40 mb-1.5">Shared rhythm</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {overlapData.sharedRhythm.map((s) => (
+                        <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-blue/20">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="watercolor-card watercolor-lavender p-4">
+                  <div className="space-y-2">
+                    {overlapData.overlapSummary.split('\n\n').slice(0, 2).map((p, i) => (
+                      <p key={i} className="text-xs leading-relaxed opacity-65">{p}</p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Share info (collapsible, subtle) */}
       <div className="mx-5 mb-6">
         <button
@@ -248,7 +466,8 @@ export default function ConnectionProfile() {
             <p>1. Tap &ldquo;Share&rdquo; above to copy a link</p>
             <p>2. Send it to {connection.name}</p>
             <p>3. They fill out their own version of this connection</p>
-            <p>4. The app shows where you align and where you differ</p>
+            <p>4. They tap &ldquo;Share back&rdquo; and send the return link to you</p>
+            <p>5. Open their link to see the overlap and save it here</p>
             <p className="opacity-70 italic">No accounts, no servers — everything stays on-device.</p>
           </div>
         )}
