@@ -149,18 +149,23 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
         >
           {lines.map((line, i) => {
             const isOrLine = i === lines.length - 1 && tier.label === 'Not Available For';
+            const isBottom = corner === 'bottom-left' || corner === 'bottom-right';
+            const textColor = isBottom ? 'rgba(0,0,0,0.75)' : 'white';
+            const shadow = isBottom
+              ? '0 1px 4px rgba(255,255,255,0.4)'
+              : '0 1px 6px rgba(0,0,0,0.4)';
             return (
               <div
                 key={i}
                 style={{
-                  color: 'white',
+                  color: textColor,
                   fontWeight: isOrLine ? 500 : 800,
                   fontSize: isOrLine ? (active ? 11 : 9) : (active ? 14 : 12),
                   lineHeight: 1.25,
                   letterSpacing: '0.06em',
                   textTransform: 'uppercase',
-                  textShadow: '0 1px 6px rgba(0,0,0,0.4)',
-                  opacity: isOrLine ? 0.8 : 1,
+                  textShadow: shadow,
+                  opacity: isOrLine ? 0.7 : 1,
                 }}
               >
                 {line}
