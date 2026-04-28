@@ -29,8 +29,10 @@ export default function MapSharePage() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [myName, setMyName] = useState('');
 
+  const fromUrlSafeBase64 = (s: string) => decodeURIComponent(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - s.length % 4) % 4)));
+
   const sharerData = useMemo<SharerData | null>(() => {
-    try { return JSON.parse(decodeURIComponent(atob(token))); }
+    try { return JSON.parse(fromUrlSafeBase64(token)); }
     catch { return null; }
   }, [token]);
 
@@ -91,7 +93,7 @@ export default function MapSharePage() {
       personA: { name: sharerData.name, profiles: sharerData.profiles },
       personB: { name: myName.trim() || 'You', profiles: personBProfiles },
     };
-    const newToken = btoa(encodeURIComponent(JSON.stringify(combined)));
+    const newToken = btoa(encodeURIComponent(JSON.stringify(combined))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
     router.push(`/map-compare/${newToken}`);
   };
 

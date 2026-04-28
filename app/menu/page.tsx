@@ -264,20 +264,24 @@ export default function MyMenuPage() {
       { key: 'off-limits', label: 'Not Available For', gradient: 'linear-gradient(135deg, #F4A89A 0%, #C5A3CF 100%)', includeUnrated: true },
     ];
 
+    const toUrlSafeBase64 = (str: string) =>
+      btoa(encodeURIComponent(str)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
     const handleShare = async () => {
       if (sharing) return;
       setSharing(true);
       const data = JSON.stringify({ name: myName, profiles: menuProfiles });
-      const token = btoa(encodeURIComponent(data));
+      const token = toUrlSafeBase64(data);
       const url = `${window.location.origin}/map-share/${token}`;
       try {
         if (navigator.share) {
-          await navigator.share({ title: `${myName || 'My'} Map`, url });
-        } else {
-          await navigator.clipboard.writeText(url);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
+          await navigator.share({ title: `${myName || 'My'} Map`, url }).catch(() => {});
         }
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      } catch {
+        // clipboard not available (very old browser) — share sheet was enough
       } finally {
         setSharing(false);
       }
@@ -303,13 +307,16 @@ export default function MyMenuPage() {
           </h1>
           <button
             onClick={handleShare}
-            className="text-xs px-4 py-1.5 rounded-full transition-all active:scale-95"
+            className="text-xs px-5 py-2 rounded-full font-medium transition-all active:scale-95"
             style={{
-              background: copied ? 'var(--sage)' : 'rgba(61,53,50,0.06)',
-              color: copied ? 'white' : '#3D3532',
+              background: copied
+                ? 'linear-gradient(135deg, var(--sage), #80C9C1)'
+                : 'linear-gradient(135deg, var(--peach), var(--lavender))',
+              color: 'white',
+              letterSpacing: '0.01em',
             }}
           >
-            {copied ? 'Copied!' : sharing ? '...' : 'Share My Map'}
+            {copied ? '✓ Link copied' : sharing ? '…' : 'Share My Map'}
           </button>
         </div>
 

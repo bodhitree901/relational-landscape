@@ -59,8 +59,10 @@ export default function MapComparePage() {
   const [viewMode, setViewMode] = useState<'shared' | 'my'>('shared');
 
   const data = useMemo<MapCompareData | null>(() => {
-    try { return JSON.parse(decodeURIComponent(atob(token))); }
-    catch { return null; }
+    try {
+      const padded = token.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - token.length % 4) % 4);
+      return JSON.parse(decodeURIComponent(atob(padded)));
+    } catch { return null; }
   }, [token]);
 
   if (!data) {
