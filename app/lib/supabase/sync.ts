@@ -61,6 +61,27 @@ export async function deleteRemoteConnection(connectionId: string) {
   await supabase.from('connections').delete().eq('id', connectionId);
 }
 
+// ── My Map sync ────────────────────────────────────────────────────────────
+
+/** Push My Map to Supabase profiles table (called whenever the map is saved) */
+export async function pushMyMap(userId: string, name: string, mapData: unknown) {
+  await supabase.from('profiles').upsert(
+    { id: userId, my_map_name: name, my_map_data: mapData },
+    { onConflict: 'id' }
+  );
+}
+
+/** Pull My Map from Supabase — used on login for cross-device sync */
+export async function pullMyMap(userId: string): Promise<{ name: string; mapData: unknown } | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('my_map_name, my_map_data')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error || !data?.my_map_data) return null;
+  return { name: (data.my_map_name as string) || '', mapData: data.my_map_data };
+}
+
 // Pull connections from Supabase and merge with localStorage
 export async function pullConnections(userId: string) {
   const { data: remote } = await supabase

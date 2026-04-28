@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { MENU_CATEGORIES, MenuTier } from '../../lib/menu-categories';
 import { Connection, Tier } from '../../lib/types';
@@ -8,6 +8,7 @@ import Highlights from '../../components/Highlights';
 import CategoryCards from '../../components/CategoryCards';
 import SharedCategoryCards from '../../components/SharedCategoryCards';
 import Link from 'next/link';
+import { isResponseId, getMyMapComparison } from '../../lib/supabase/my-map-shares';
 
 interface PersonData {
   name: string;
@@ -57,13 +58,45 @@ export default function MapComparePage() {
   const params = useParams();
   const token = params.token as string;
   const [viewMode, setViewMode] = useState<'shared' | 'my'>('shared');
+  const [data, setData] = useState<MapCompareData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const data = useMemo<MapCompareData | null>(() => {
-    try {
-      const padded = token.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - token.length % 4) % 4);
-      return JSON.parse(decodeURIComponent(atob(padded)));
-    } catch { return null; }
+  useEffect(() => {
+    async function load() {
+      if (isResponseId(token)) {
+        // Supabase response UUID — load both sides from DB
+        const result = await getMyMapComparison(token);
+        if (result) {
+          setData({
+            personA: { name: result.personA.name, profiles: result.personA.profiles.map((p) => ({
+              categoryId: p.categoryId,
+              ratings: p.ratings.map((r) => ({ item: r.item, tier: r.tier as MenuTier })),
+            })) },
+            personB: { name: result.personB.name, profiles: result.personB.profiles.map((p) => ({
+              categoryId: p.categoryId,
+              ratings: p.ratings.map((r) => ({ item: r.item, tier: r.tier as MenuTier })),
+            })) },
+          });
+        }
+      } else {
+        // Legacy URL-encoded base64
+        try {
+          const padded = token.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - token.length % 4) % 4);
+          setData(JSON.parse(decodeURIComponent(atob(padded))));
+        } catch { /* data stays null */ }
+      }
+      setLoading(false);
+    }
+    load();
   }, [token]);
+
+  if (loading) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-[var(--lavender)] border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
   if (!data) {
     return (

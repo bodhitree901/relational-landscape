@@ -7,30 +7,40 @@ import { getConnections, deleteConnection } from './lib/storage';
 import ConnectionCard from './components/ConnectionCard';
 import AuthButton from './components/AuthButton';
 import { useAuth } from './components/AuthProvider';
-import { getMyResponses } from './lib/supabase/invitations';
+import { getMyResponses, subscribeToResponses } from './lib/supabase/invitations';
+import { getMyMapResponses, subscribeToMyMapResponses } from './lib/supabase/my-map-shares';
 
 const SEEN_KEY = 'rl_seen_responses';
+const SEEN_MAP_KEY = 'rl_seen_map_responses';
 
-function getSeenResponses(): Set<string> {
+function getSeenSet(key: string): Set<string> {
   if (typeof window === 'undefined') return new Set();
-  const data = localStorage.getItem(SEEN_KEY);
+  const data = localStorage.getItem(key);
   return data ? new Set(JSON.parse(data)) : new Set();
+}
+
+function markSeen(key: string, id: string) {
+  const seen = getSeenSet(key);
+  seen.add(id);
+  localStorage.setItem(key, JSON.stringify([...seen]));
 }
 
 export default function Home() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [newResponses, setNewResponses] = useState<Map<string, string>>(new Map());
+  const [myMapResponses, setMyMapResponses] = useState<{ id: string; responder_name: string; created_at: string }[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
     setConnections(getConnections());
   }, []);
 
-  // Check for new responses from Supabase
+  // Check for new connection responses
   useEffect(() => {
     if (!user) return;
     getMyResponses(user.id).then((invitations) => {
-      const seen = getSeenResponses();
+      const seen = getSeenSet(SEEN_KEY);
       const badge = new Map<string, string>();
       for (const inv of invitations) {
         if (inv.connection_id && inv.responses?.length > 0) {
@@ -44,8 +54,70 @@ export default function Home() {
     });
   }, [user]);
 
+  // Check for new My Map responses
+  useEffect(() => {
+    if (!user) return;
+    const seen = getSeenSet(SEEN_MAP_KEY);
+    getMyMapResponses(user.id).then((shares) => {
+      const unseen: { id: string; responder_name: string; created_at: string }[] = [];
+      for (const share of shares) {
+        for (const resp of share.my_map_responses || []) {
+          if (!seen.has(resp.id)) {
+            unseen.push(resp);
+          }
+        }
+      }
+      setMyMapResponses(unseen);
+    });
+  }, [user]);
+
+  // Real-time: connection responses
+  useEffect(() => {
+    if (!user) return;
+    // Subscribe to all connections
+    const subs = connections.map((c) =>
+      subscribeToResponses(user.id, c.id, () => {
+        showToast(`Someone responded to your ${c.name} map!`);
+        setNewResponses((prev) => new Map(prev).set(c.id, 'New response'));
+      })
+    );
+    return () => subs.forEach((s) => s.unsubscribe());
+  }, [user, connections]);
+
+  // Real-time: My Map responses
+  useEffect(() => {
+    if (!user) return;
+    const sub = subscribeToMyMapResponses(user.id, (responderName, responseId) => {
+      showToast(`${responderName} responded to your My Map! 🗺️`);
+      setMyMapResponses((prev) => [
+        { id: responseId, responder_name: responderName, created_at: new Date().toISOString() },
+        ...prev,
+      ]);
+    });
+    return () => sub.unsubscribe();
+  }, [user]);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4500);
+  }
+
   return (
     <div className="min-h-dvh pb-24">
+      {/* Toast notification */}
+      {toast && (
+        <div
+          className="fixed top-4 left-4 right-4 z-50 px-4 py-3 rounded-2xl text-white text-sm font-medium shadow-xl"
+          style={{
+            background: 'linear-gradient(135deg, #009483, #81CC73)',
+            animation: 'tooltip-enter 0.3s ease-out',
+          }}
+          onClick={() => setToast(null)}
+        >
+          {toast}
+        </div>
+      )}
+
       {/* Header */}
       <div className="px-5 pt-8 pb-6">
         <h1 className="text-3xl font-semibold mb-1" style={{ fontFamily: 'Georgia, serif' }}>
@@ -78,6 +150,39 @@ export default function Home() {
           Reference Map
         </Link>
       </div>
+
+      {/* My Map responses banner */}
+      {myMapResponses.length > 0 && (
+        <div className="px-5 mb-4">
+          {myMapResponses.map((resp) => (
+            <div
+              key={resp.id}
+              className="rounded-2xl px-4 py-3 mb-2 flex items-center justify-between"
+              style={{
+                background: 'linear-gradient(135deg, rgba(129,204,115,0.12), rgba(0,148,131,0.12))',
+                border: '1.5px solid rgba(0,148,131,0.2)',
+              }}
+            >
+              <div>
+                <p className="text-sm font-semibold" style={{ color: '#007A6B' }}>
+                  🗺️ {resp.responder_name} responded to your My Map
+                </p>
+                <p className="text-xs opacity-40 mt-0.5">
+                  {new Date(resp.created_at).toLocaleDateString()}
+                </p>
+              </div>
+              <Link
+                href={`/map-compare/${resp.id}`}
+                onClick={() => markSeen(SEEN_MAP_KEY, resp.id)}
+                className="text-xs px-3 py-1.5 rounded-full text-white font-medium shrink-0 ml-3"
+                style={{ background: '#009483' }}
+              >
+                View →
+              </Link>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Connections list */}
       <div className="px-5">

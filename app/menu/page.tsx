@@ -6,6 +6,9 @@ import ChipPool, { ChipRating } from '../components/ChipPool';
 import { MENU_TIERS } from '../lib/tier-configs';
 import Link from 'next/link';
 import { SUBCATEGORY_DEFINITIONS } from '../lib/definitions';
+import { useAuth } from '../components/AuthProvider';
+import { createMyMapShare, getMyMapShareUrl } from '../lib/supabase/my-map-shares';
+import { pushMyMap } from '../lib/supabase/sync';
 
 const STORAGE_KEY = 'rl_my_menu';
 const NAME_KEY = 'rl_my_name';
@@ -46,6 +49,14 @@ export default function MyMenuPage() {
   const [peekItem, setPeekItem] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const { user } = useAuth();
+
+  // Cross-device sync: push My Map to Supabase whenever it's saved
+  useEffect(() => {
+    if (user && menuProfiles.length > 0 && myName) {
+      pushMyMap(user.id, myName, menuProfiles).catch(() => {});
+    }
+  }, [user, menuProfiles, myName]);
 
   useEffect(() => {
     const stored = getStoredMenu();
@@ -267,24 +278,28 @@ export default function MyMenuPage() {
       { key: 'off-limits', label: 'Not Available For', gradient: 'linear-gradient(135deg, #F4A89A 0%, #C5A3CF 100%)', shadowColor: '#F4A89A', includeUnrated: true },
     ];
 
-    const toUrlSafeBase64 = (str: string) =>
-      btoa(encodeURIComponent(str)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-
     const handleShare = async () => {
       if (sharing) return;
       setSharing(true);
-      const data = JSON.stringify({ name: myName, profiles: menuProfiles });
-      const token = toUrlSafeBase64(data);
-      const url = `${window.location.origin}/map-share/${token}`;
+      let url: string;
       try {
-        if (navigator.share) {
-          await navigator.share({ title: `${myName || 'My'} Map`, url }).catch(() => {});
+        if (user) {
+          // Signed in → short Supabase token + real-time notifications
+          const result = await createMyMapShare(user.id, myName || 'Anonymous', menuProfiles);
+          if ('error' in result) throw new Error(result.error);
+          url = getMyMapShareUrl(result.token);
+        } else {
+          // Not signed in → URL-encoded fallback (sign in to get notifications)
+          const data = JSON.stringify({ name: myName, profiles: menuProfiles });
+          const token = btoa(encodeURIComponent(data)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+          url = `${window.location.origin}/map-share/${token}`;
         }
+        if (navigator.share) await navigator.share({ title: `${myName || 'My'} Map`, url }).catch(() => {});
         await navigator.clipboard.writeText(url);
         setCopied(true);
         setTimeout(() => setCopied(false), 2500);
       } catch {
-        // clipboard not available (very old browser) — share sheet was enough
+        // clipboard not available or share failed — that's okay
       } finally {
         setSharing(false);
       }

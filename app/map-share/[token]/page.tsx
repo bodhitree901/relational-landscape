@@ -1,13 +1,18 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { MENU_CATEGORIES, MenuTier, MENU_TIER_COLORS } from '../../lib/menu-categories';
 import { SUBCATEGORY_DEFINITIONS } from '../../lib/definitions';
+import {
+  isSupabaseToken, getMyMapShare, submitMyMapResponse,
+  type MyMapProfile,
+} from '../../lib/supabase/my-map-shares';
 
 interface SharerData {
   name: string;
   profiles: { categoryId: string; ratings: { item: string; tier: MenuTier }[] }[];
+  shareId?: string; // present for Supabase-backed shares
 }
 
 const TIER_ORDER: MenuTier[] = ['must-have', 'open', 'maybe', 'off-limits'];
@@ -27,24 +32,50 @@ const TIER_CONFIG: { key: MenuTier; label: string; gradient: string; shadowColor
   { key: 'off-limits', label: "Not Available / Not Selected", gradient: 'linear-gradient(135deg, #F4A89A 0%, #C5A3CF 100%)', shadowColor: '#F4A89A', includeUnrated: true },
 ];
 
+type PageMode = 'loading' | 'invalid' | 'choose' | 'view' | 'fill';
+
 export default function MapSharePage() {
   const params = useParams();
   const router = useRouter();
   const token = params.token as string;
 
+  const [pageMode, setPageMode] = useState<PageMode>('loading');
+  const [sharerData, setSharerData] = useState<SharerData | null>(null);
   const [myRatings, setMyRatings] = useState<Map<string, MenuTier>>(new Map());
   const [expandedTier, setExpandedTier] = useState<MenuTier | null>(null);
-  const [peekItem, setPeekItem] = useState<string | null>(null);
-  const [showNameModal, setShowNameModal] = useState(false);
   const [defItem, setDefItem] = useState<string | null>(null);
+  const [showNameModal, setShowNameModal] = useState(false);
   const [myName, setMyName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const fromUrlSafeBase64 = (s: string) =>
-    decodeURIComponent(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - s.length % 4) % 4)));
-
-  const sharerData = useMemo<SharerData | null>(() => {
-    try { return JSON.parse(fromUrlSafeBase64(token)); }
-    catch { return null; }
+  // Load share data — Supabase first, then URL decode fallback
+  useEffect(() => {
+    async function load() {
+      if (isSupabaseToken(token)) {
+        // Short token → load from Supabase
+        const share = await getMyMapShare(token);
+        if (!share) { setPageMode('invalid'); return; }
+        setSharerData({
+          name: share.sharer_name,
+          profiles: (share.map_data as unknown as MyMapProfile[]).map((p) => ({
+            categoryId: p.categoryId,
+            ratings: p.ratings.map((r) => ({ item: r.item, tier: r.tier as MenuTier })),
+          })),
+          shareId: share.id,
+        });
+      } else {
+        // Long URL-encoded base64 → legacy decode
+        try {
+          const padded = token.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - token.length % 4) % 4);
+          const parsed = JSON.parse(decodeURIComponent(atob(padded)));
+          setSharerData({ name: parsed.name, profiles: parsed.profiles });
+        } catch {
+          setPageMode('invalid'); return;
+        }
+      }
+      setPageMode('choose');
+    }
+    load();
   }, [token]);
 
   const sharerRatings = useMemo(() => {
@@ -55,24 +86,79 @@ export default function MapSharePage() {
     return map;
   }, [sharerData]);
 
-  if (!sharerData) {
+  if (pageMode === 'loading') {
     return (
-      <div className="min-h-dvh flex items-center justify-center px-8">
-        <p className="text-lg opacity-40">Invalid link</p>
+      <div className="min-h-dvh flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-[var(--lavender)] border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (pageMode === 'invalid' || !sharerData) {
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center px-8 text-center gap-3">
+        <p className="text-lg opacity-40">Invalid or expired link</p>
+        <a href="/" className="text-sm underline opacity-40">Go home</a>
+      </div>
+    );
+  }
+
+  // ── Choose screen ──────────────────────────────────────────────────────
+  if (pageMode === 'choose') {
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center px-8">
+        <div
+          className="w-full max-w-sm rounded-3xl p-8 text-center"
+          style={{
+            background: 'white',
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            border: '2px solid rgba(255,255,255,0.8)',
+          }}
+        >
+          <div
+            className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-bold text-white"
+            style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
+          >
+            {sharerData.name[0]?.toUpperCase()}
+          </div>
+          <h1 className="text-xl font-semibold mb-2" style={{ fontFamily: 'Georgia, serif' }}>
+            {sharerData.name}&apos;s Map
+          </h1>
+          <p className="text-sm opacity-40 mb-8">
+            What would you like to do?
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => setPageMode('fill')}
+              className="w-full py-3.5 rounded-2xl text-white font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
+            >
+              ✏️ Fill in my side
+            </button>
+            <button
+              onClick={() => setPageMode('view')}
+              className="w-full py-3.5 rounded-2xl font-medium transition-all hover:opacity-80 active:scale-[0.98]"
+              style={{ background: 'rgba(0,0,0,0.05)', color: 'rgba(0,0,0,0.6)' }}
+            >
+              👁 Just browse their map
+            </button>
+          </div>
+          <p className="text-[10px] opacity-30 mt-5">No account needed</p>
+        </div>
       </div>
     );
   }
 
   const handleSetMyTier = (item: string, tier: MenuTier) => {
+    if (pageMode === 'view') return;
     setMyRatings((prev) => {
       const next = new Map(prev);
       if (prev.get(item) === tier) next.delete(item); else next.set(item, tier);
       return next;
     });
-    setPeekItem(null);
+    setDefItem(null);
   };
 
-  // For a given tier, get items grouped by MENU_CATEGORY
   const getTierGroups = (tier: MenuTier, includeUnrated = false) =>
     MENU_CATEGORIES.map((cat) => {
       const items = cat.items
@@ -88,20 +174,66 @@ export default function MapSharePage() {
   const totalMyRated = myRatings.size;
   const totalSharerItems = sharerRatings.size;
 
+  async function handleGoToMap() {
+    if (!myName.trim()) return;
+    setSubmitting(true);
+    setShowNameModal(false);
+
+    // Build Person B's profiles
+    const profileMap = new Map<string, { item: string; tier: MenuTier }[]>();
+    for (const [item, tier] of myRatings) {
+      for (const cat of MENU_CATEGORIES) {
+        if (cat.items.includes(item)) {
+          if (!profileMap.has(cat.id)) profileMap.set(cat.id, []);
+          profileMap.get(cat.id)!.push({ item, tier });
+          break;
+        }
+      }
+    }
+    const personBProfiles = [...profileMap.entries()].map(([categoryId, ratings]) => ({ categoryId, ratings }));
+
+    // If Supabase-backed share, save response and navigate by ID
+    if (sharerData.shareId) {
+      const result = await submitMyMapResponse(sharerData.shareId, myName.trim(), personBProfiles);
+      if ('id' in result) {
+        router.push(`/map-compare/${result.id}`);
+        return;
+      }
+      // Fall through to URL encode if Supabase save failed
+    }
+
+    // Legacy URL-encoded fallback
+    const combined = {
+      personA: { name: sharerData.name, profiles: sharerData.profiles },
+      personB: { name: myName.trim(), profiles: personBProfiles },
+    };
+    const newToken = btoa(encodeURIComponent(JSON.stringify(combined)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    router.push(`/map-compare/${newToken}`);
+  }
+
   return (
     <div className="page-enter min-h-dvh pb-16">
       {/* Header */}
       <div className="px-5 pt-8 pb-5 text-center">
         <h1 className="text-2xl font-semibold mb-2" style={{ fontFamily: 'Georgia, serif' }}>
-          Here&apos;s {sharerData.name}&apos;s Map
+          {sharerData.name}&apos;s Map
         </h1>
         <p className="text-sm font-semibold" style={{ color: 'rgba(0,0,0,0.45)' }}>
-          Tap a section to fill in your side
+          {pageMode === 'fill' ? 'Tap a section to fill in your side' : 'Browse their map'}
         </p>
+        {pageMode === 'fill' && (
+          <button
+            onClick={() => setPageMode('view')}
+            className="mt-1 text-xs opacity-30 hover:opacity-50 transition-opacity"
+          >
+            Switch to view only
+          </button>
+        )}
       </div>
 
-      {/* Progress */}
-      {totalMyRated > 0 && (
+      {/* Progress (fill mode only) */}
+      {pageMode === 'fill' && totalMyRated > 0 && (
         <div className="mx-5 mb-4 px-4 py-2 rounded-xl text-center" style={{ background: 'rgba(0,0,0,0.04)' }}>
           <p className="text-xs" style={{ color: 'rgba(0,0,0,0.4)' }}>
             You&apos;ve filled in {totalMyRated} of {totalSharerItems} items
@@ -122,9 +254,8 @@ export default function MapSharePage() {
 
           return (
             <div key={key} className="rounded-2xl overflow-hidden">
-              {/* Card header */}
               <button
-                onClick={() => { setExpandedTier(isExp ? null : key); setPeekItem(null); }}
+                onClick={() => { setExpandedTier(isExp ? null : key); setDefItem(null); }}
                 className="w-full text-left px-5 py-5 transition-all active:scale-[0.99] rounded-2xl"
                 style={{
                   background: gradient,
@@ -141,20 +272,19 @@ export default function MapSharePage() {
                       {key === 'off-limits'
                         ? `${totalItems} not available · ${totalWithUnrated - totalItems} not selected`
                         : `${sharerData.name} has ${totalItems} item${totalItems !== 1 ? 's' : ''} here`}
-                      {myCount > 0 ? ` · You filled in ${myCount}` : ''}
+                      {pageMode === 'fill' && myCount > 0 ? ` · You filled in ${myCount}` : ''}
                     </p>
                   </div>
                   <span className="text-sm" style={{ color: 'rgba(0,0,0,0.25)' }}>{isExp ? '▲' : '▼'}</span>
                 </div>
               </button>
 
-              {/* Expanded items */}
               {isExp && (
                 <div
                   className="border-x border-b border-black/5 rounded-b-2xl"
                   style={{ background: 'rgba(255,255,255,0.97)', animation: 'tooltip-enter 0.2s ease-out' }}
                 >
-                  {/* Tier column headers */}
+                  {/* Column headers */}
                   <div className="flex pl-[120px] pr-4 pt-3 pb-1">
                     {TIER_ORDER.map((t) => (
                       <div key={t} className="flex-1 text-center">
@@ -165,7 +295,6 @@ export default function MapSharePage() {
                     ))}
                   </div>
 
-                  {/* Items grouped by sub-category */}
                   <div className="px-4 pb-4 pt-1 space-y-3">
                     {groups.map((group) => (
                       <div
@@ -209,7 +338,8 @@ export default function MapSharePage() {
                                         <button
                                           key={t}
                                           onClick={() => handleSetMyTier(item, t)}
-                                          className="flex-1 rounded transition-all active:scale-95"
+                                          disabled={pageMode === 'view'}
+                                          className="flex-1 rounded transition-all active:scale-95 disabled:cursor-default"
                                           style={{
                                             height: 24,
                                             background: isSharer
@@ -251,10 +381,12 @@ export default function MapSharePage() {
                       <div className="w-5 h-3 rounded" style={{ background: `${MENU_TIER_COLORS[key]}CC` }} />
                       <span>{sharerData.name}&apos;s pick</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-5 h-3 rounded border-2" style={{ borderColor: TIER_COLORS_DARK['must-have'], background: `${MENU_TIER_COLORS['must-have']}55` }} />
-                      <span>Your pick (tap to select)</span>
-                    </div>
+                    {pageMode === 'fill' && (
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-5 h-3 rounded border-2" style={{ borderColor: TIER_COLORS_DARK['must-have'], background: `${MENU_TIER_COLORS['must-have']}55` }} />
+                        <span>Your pick</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -263,19 +395,32 @@ export default function MapSharePage() {
         })}
       </div>
 
-      {/* See Our Map Together */}
+      {/* Bottom CTA */}
       <div className="px-5 mt-8">
-        <button
-          onClick={() => setShowNameModal(true)}
-          className="w-full py-4 rounded-2xl text-white font-semibold text-base transition-all hover:opacity-90 active:scale-[0.98]"
-          style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
-        >
-          See Our Map Together
-        </button>
-        {totalMyRated > 0 && (
-          <p className="text-center text-xs mt-2" style={{ color: 'rgba(0,0,0,0.3)' }}>
-            {totalMyRated} item{totalMyRated !== 1 ? 's' : ''} filled in
-          </p>
+        {pageMode === 'fill' ? (
+          <>
+            <button
+              onClick={() => setShowNameModal(true)}
+              disabled={submitting}
+              className="w-full py-4 rounded-2xl text-white font-semibold text-base transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
+            >
+              {submitting ? 'Saving…' : 'See Our Map Together →'}
+            </button>
+            {totalMyRated > 0 && (
+              <p className="text-center text-xs mt-2" style={{ color: 'rgba(0,0,0,0.3)' }}>
+                {totalMyRated} item{totalMyRated !== 1 ? 's' : ''} filled in
+              </p>
+            )}
+          </>
+        ) : (
+          <button
+            onClick={() => setPageMode('fill')}
+            className="w-full py-4 rounded-2xl font-semibold text-base transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{ background: 'rgba(0,0,0,0.06)', color: 'rgba(0,0,0,0.6)' }}
+          >
+            ✏️ Fill in my side too
+          </button>
         )}
       </div>
 
@@ -308,35 +453,15 @@ export default function MapSharePage() {
             />
             <button
               onClick={handleGoToMap}
-              className="w-full py-4 rounded-2xl text-white font-semibold text-base transition-all hover:opacity-90 active:scale-[0.98]"
+              disabled={!myName.trim() || submitting}
+              className="w-full py-4 rounded-2xl text-white font-semibold text-base transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40"
               style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
             >
-              See Our Map Together
+              {submitting ? 'Saving…' : 'See Our Map Together →'}
             </button>
           </div>
         </>
       )}
     </div>
   );
-
-  function handleGoToMap() {
-    const profileMap = new Map<string, { item: string; tier: MenuTier }[]>();
-    for (const [item, tier] of myRatings) {
-      for (const cat of MENU_CATEGORIES) {
-        if (cat.items.includes(item)) {
-          if (!profileMap.has(cat.id)) profileMap.set(cat.id, []);
-          profileMap.get(cat.id)!.push({ item, tier });
-          break;
-        }
-      }
-    }
-    const personBProfiles = [...profileMap.entries()].map(([categoryId, ratings]) => ({ categoryId, ratings }));
-    const combined = {
-      personA: { name: sharerData!.name, profiles: sharerData!.profiles },
-      personB: { name: myName.trim() || 'You', profiles: personBProfiles },
-    };
-    const newToken = btoa(encodeURIComponent(JSON.stringify(combined)))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-    router.push(`/map-compare/${newToken}`);
-  }
 }
