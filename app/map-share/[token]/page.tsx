@@ -19,13 +19,21 @@ const TIER_COLORS_DARK: Record<MenuTier, string> = {
   'must-have': '#007A6B', 'open': '#5BA84D', 'maybe': '#B8A520', 'off-limits': '#D47020',
 };
 
+const TIER_CONFIG: { key: MenuTier; label: string; gradient: string; includeUnrated?: boolean }[] = [
+  { key: 'must-have',  label: "Easy Yes's",            gradient: 'linear-gradient(135deg, #80C9C1 0%, #95CFA0 100%)' },
+  { key: 'open',       label: "Open For's",             gradient: 'linear-gradient(135deg, #89CFF0 0%, #80C9C1 100%)' },
+  { key: 'maybe',      label: "Maybe's",                gradient: 'linear-gradient(135deg, #F5D06E 0%, #F4A89A 100%)' },
+  { key: 'off-limits', label: "Not Available / Not Selected", gradient: 'linear-gradient(135deg, #F4A89A 0%, #C5A3CF 100%)', includeUnrated: true },
+];
+
 export default function MapSharePage() {
   const params = useParams();
   const router = useRouter();
   const token = params.token as string;
 
   const [myRatings, setMyRatings] = useState<Map<string, MenuTier>>(new Map());
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [expandedTier, setExpandedTier] = useState<MenuTier | null>(null);
+  const [peekItem, setPeekItem] = useState<string | null>(null);
   const [showNameModal, setShowNameModal] = useState(false);
   const [myName, setMyName] = useState('');
 
@@ -59,28 +67,21 @@ export default function MapSharePage() {
       if (prev.get(item) === tier) next.delete(item); else next.set(item, tier);
       return next;
     });
+    setPeekItem(null);
   };
 
-  const handleGoToMap = () => {
-    const profileMap = new Map<string, { item: string; tier: MenuTier }[]>();
-    for (const [item, tier] of myRatings) {
-      for (const cat of MENU_CATEGORIES) {
-        if (cat.items.includes(item)) {
-          if (!profileMap.has(cat.id)) profileMap.set(cat.id, []);
-          profileMap.get(cat.id)!.push({ item, tier });
-          break;
-        }
-      }
-    }
-    const personBProfiles = [...profileMap.entries()].map(([categoryId, ratings]) => ({ categoryId, ratings }));
-    const combined = {
-      personA: { name: sharerData.name, profiles: sharerData.profiles },
-      personB: { name: myName.trim() || 'You', profiles: personBProfiles },
-    };
-    const newToken = btoa(encodeURIComponent(JSON.stringify(combined)))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-    router.push(`/map-compare/${newToken}`);
-  };
+  // For a given tier, get items grouped by MENU_CATEGORY
+  const getTierGroups = (tier: MenuTier, includeUnrated = false) =>
+    MENU_CATEGORIES.map((cat) => {
+      const items = cat.items
+        .filter((item) => includeUnrated
+          ? (sharerRatings.get(item) === tier || !sharerRatings.has(item))
+          : sharerRatings.get(item) === tier)
+        .map((item) => ({ item, isUnrated: !sharerRatings.has(item) }));
+      return items.length > 0
+        ? { categoryId: cat.id, categoryName: cat.name, categoryColor: cat.color, items }
+        : null;
+    }).filter(Boolean) as { categoryId: string; categoryName: string; categoryColor: string; items: { item: string; isUnrated: boolean }[] }[];
 
   const totalMyRated = myRatings.size;
   const totalSharerItems = sharerRatings.size;
@@ -93,7 +94,7 @@ export default function MapSharePage() {
           Here&apos;s {sharerData.name}&apos;s Map
         </h1>
         <p className="text-sm font-semibold" style={{ color: 'rgba(0,0,0,0.45)' }}>
-          Tap any category to fill in your side
+          Tap a section to fill in your side
         </p>
       </div>
 
@@ -101,78 +102,48 @@ export default function MapSharePage() {
       {totalMyRated > 0 && (
         <div className="mx-5 mb-4 px-4 py-2 rounded-xl text-center" style={{ background: 'rgba(0,0,0,0.04)' }}>
           <p className="text-xs" style={{ color: 'rgba(0,0,0,0.4)' }}>
-            You&apos;ve filled in {totalMyRated} of {totalSharerItems} items {sharerData.name} rated
+            You&apos;ve filled in {totalMyRated} of {totalSharerItems} items
           </p>
         </div>
       )}
 
-      {/* Category accordion cards */}
+      {/* Tier accordion cards */}
       <div className="px-5 space-y-3">
-        {MENU_CATEGORIES.map((cat) => {
-          const isExpanded = expandedCategory === cat.id;
+        {TIER_CONFIG.map(({ key, label, gradient, includeUnrated }) => {
+          const groups = getTierGroups(key, includeUnrated);
+          const totalItems = groups.reduce((sum, g) => sum + g.items.filter(i => !i.isUnrated).length, 0);
+          const totalWithUnrated = groups.reduce((sum, g) => sum + g.items.length, 0);
+          const myCount = groups.reduce((sum, g) => sum + g.items.filter(({ item }) => myRatings.has(item)).length, 0);
+          const isExp = expandedTier === key;
 
-          // Sharer's counts for this category
-          const sharerCounts: Record<MenuTier, number> = { 'must-have': 0, 'open': 0, 'maybe': 0, 'off-limits': 0 };
-          for (const item of cat.items) {
-            const t = sharerRatings.get(item);
-            if (t) sharerCounts[t]++;
-          }
-          const sharerTotal = Object.values(sharerCounts).reduce((a, b) => a + b, 0);
-
-          // My counts for this category
-          const myTotal = cat.items.filter((i) => myRatings.has(i)).length;
+          if (totalWithUnrated === 0) return null;
 
           return (
-            <div key={cat.id} className="rounded-2xl overflow-hidden shadow-sm">
+            <div key={key} className="rounded-2xl overflow-hidden shadow-sm">
               {/* Card header */}
               <button
-                onClick={() => setExpandedCategory(isExpanded ? null : cat.id)}
-                className="w-full text-left px-5 py-4 transition-all active:scale-[0.99]"
-                style={{ background: `${cat.color}28` }}
+                onClick={() => { setExpandedTier(isExp ? null : key); setPeekItem(null); }}
+                className="w-full text-left px-5 py-5 transition-all active:scale-[0.99]"
+                style={{ background: gradient }}
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-base leading-tight" style={{ color: cat.color }}>
-                      {cat.name}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-extrabold uppercase tracking-wide" style={{ color: 'rgba(0,0,0,0.65)' }}>
+                      {label}
                     </h3>
-                    <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.38)' }}>
-                      {sharerTotal > 0
-                        ? `${sharerData.name} rated ${sharerTotal} item${sharerTotal !== 1 ? 's' : ''}${myTotal > 0 ? ` · You filled in ${myTotal}` : ''}`
-                        : `${sharerData.name} hasn't filled this in yet`}
+                    <p className="text-xs mt-1" style={{ color: 'rgba(0,0,0,0.35)' }}>
+                      {key === 'off-limits'
+                        ? `${totalItems} not available · ${totalWithUnrated - totalItems} not selected`
+                        : `${sharerData.name} has ${totalItems} item${totalItems !== 1 ? 's' : ''} here`}
+                      {myCount > 0 ? ` · You filled in ${myCount}` : ''}
                     </p>
                   </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    {/* Mini tier dots showing sharer's distribution */}
-                    {sharerTotal > 0 && (
-                      <div className="flex gap-1 items-center">
-                        {TIER_ORDER.map((t) => sharerCounts[t] > 0 && (
-                          <div
-                            key={t}
-                            className="rounded-full flex items-center justify-center"
-                            style={{
-                              width: 18, height: 18,
-                              background: `${MENU_TIER_COLORS[t]}CC`,
-                            }}
-                          >
-                            <span className="text-[9px] font-bold text-white/80">{sharerCounts[t]}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {myTotal === 0 && (
-                      <span className="text-[10px] font-medium" style={{ color: cat.color, opacity: 0.7 }}>
-                        Fill in →
-                      </span>
-                    )}
-                    <span className="text-xs" style={{ color: 'rgba(0,0,0,0.25)' }}>{isExpanded ? '▲' : '▼'}</span>
-                  </div>
+                  <span className="text-sm" style={{ color: 'rgba(0,0,0,0.25)' }}>{isExp ? '▲' : '▼'}</span>
                 </div>
               </button>
 
               {/* Expanded items */}
-              {isExpanded && (
+              {isExp && (
                 <div
                   className="border-x border-b border-black/5 rounded-b-2xl"
                   style={{ background: 'rgba(255,255,255,0.97)', animation: 'tooltip-enter 0.2s ease-out' }}
@@ -188,57 +159,67 @@ export default function MapSharePage() {
                     ))}
                   </div>
 
-                  {/* Items */}
-                  <div className="px-4 pb-4 pt-1 space-y-1">
-                    {cat.items.map((item) => {
-                      const sharerTier = sharerRatings.get(item);
-                      const myTier = myRatings.get(item);
-                      const isSharerRated = !!sharerTier;
-
-                      return (
-                        <div key={item} className="flex items-center gap-2 py-0.5" style={{ opacity: isSharerRated ? 1 : 0.45 }}>
-                          <div className="w-[116px] shrink-0 text-right pr-2">
-                            <span className="text-[11px] leading-tight font-medium" style={{ color: 'rgba(0,0,0,0.7)' }}>
-                              {item}
-                            </span>
-                          </div>
-                          <div className="flex-1 flex gap-1">
-                            {TIER_ORDER.map((t) => {
-                              const isSharer = sharerTier === t;
-                              const isMine = myTier === t;
-                              return (
-                                <button
-                                  key={t}
-                                  onClick={() => handleSetMyTier(item, t)}
-                                  className="flex-1 rounded transition-all active:scale-95"
-                                  style={{
-                                    height: 24,
-                                    background: isSharer
-                                      ? `${MENU_TIER_COLORS[t]}CC`
-                                      : isMine
-                                      ? `${MENU_TIER_COLORS[t]}50`
-                                      : 'rgba(0,0,0,0.04)',
-                                    border: isMine ? `2px solid ${TIER_COLORS_DARK[t]}` : '2px solid transparent',
-                                    boxSizing: 'border-box',
-                                  }}
-                                />
-                              );
-                            })}
-                          </div>
+                  {/* Items grouped by sub-category */}
+                  <div className="px-4 pb-4 pt-1 space-y-4">
+                    {groups.map((group) => (
+                      <div key={group.categoryId}>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: group.categoryColor }}>
+                          {group.categoryName}
+                        </p>
+                        <div className="space-y-0.5">
+                          {group.items.map(({ item, isUnrated }) => {
+                            const sharerTier = sharerRatings.get(item);
+                            const myTier = myRatings.get(item);
+                            return (
+                              <div key={item} style={{ opacity: isUnrated ? 0.35 : 1 }}>
+                                <div className="flex items-center gap-2 py-0.5">
+                                  <div className="w-[116px] shrink-0 text-right pr-2">
+                                    <span className="text-[11px] leading-tight font-medium" style={{ color: 'rgba(0,0,0,0.72)' }}>
+                                      {item}
+                                    </span>
+                                  </div>
+                                  <div className="flex-1 flex gap-1">
+                                    {TIER_ORDER.map((t) => {
+                                      const isSharer = sharerTier === t;
+                                      const isMine = myTier === t;
+                                      return (
+                                        <button
+                                          key={t}
+                                          onClick={() => !isUnrated && handleSetMyTier(item, t)}
+                                          className="flex-1 rounded transition-all active:scale-95"
+                                          style={{
+                                            height: 24,
+                                            background: isSharer
+                                              ? `${MENU_TIER_COLORS[t]}CC`
+                                              : isMine
+                                              ? `${MENU_TIER_COLORS[t]}55`
+                                              : 'rgba(0,0,0,0.04)',
+                                            border: isMine ? `2px solid ${TIER_COLORS_DARK[t]}` : '2px solid transparent',
+                                            boxSizing: 'border-box',
+                                            cursor: isUnrated ? 'default' : 'pointer',
+                                          }}
+                                        />
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
 
-                  {/* Legend inside card */}
+                  {/* Legend */}
                   <div className="mx-4 mb-4 pt-2 border-t border-black/5 flex items-center gap-5 text-[10px]" style={{ color: 'rgba(0,0,0,0.35)' }}>
                     <div className="flex items-center gap-1.5">
-                      <div className="w-5 h-3 rounded" style={{ background: `${cat.color}CC` }} />
-                      <span>{sharerData.name}</span>
+                      <div className="w-5 h-3 rounded" style={{ background: `${MENU_TIER_COLORS[key]}CC` }} />
+                      <span>{sharerData.name}&apos;s pick</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <div className="w-5 h-3 rounded border-2" style={{ borderColor: TIER_COLORS_DARK['must-have'], background: `${MENU_TIER_COLORS['must-have']}50` }} />
-                      <span>You (tap to select)</span>
+                      <div className="w-5 h-3 rounded border-2" style={{ borderColor: TIER_COLORS_DARK['must-have'], background: `${MENU_TIER_COLORS['must-have']}55` }} />
+                      <span>Your pick (tap to select)</span>
                     </div>
                   </div>
                 </div>
@@ -303,4 +284,25 @@ export default function MapSharePage() {
       )}
     </div>
   );
+
+  function handleGoToMap() {
+    const profileMap = new Map<string, { item: string; tier: MenuTier }[]>();
+    for (const [item, tier] of myRatings) {
+      for (const cat of MENU_CATEGORIES) {
+        if (cat.items.includes(item)) {
+          if (!profileMap.has(cat.id)) profileMap.set(cat.id, []);
+          profileMap.get(cat.id)!.push({ item, tier });
+          break;
+        }
+      }
+    }
+    const personBProfiles = [...profileMap.entries()].map(([categoryId, ratings]) => ({ categoryId, ratings }));
+    const combined = {
+      personA: { name: sharerData!.name, profiles: sharerData!.profiles },
+      personB: { name: myName.trim() || 'You', profiles: personBProfiles },
+    };
+    const newToken = btoa(encodeURIComponent(JSON.stringify(combined)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    router.push(`/map-compare/${newToken}`);
+  }
 }
