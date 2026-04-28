@@ -10,6 +10,12 @@ import { SUBCATEGORY_DEFINITIONS } from '../lib/definitions';
 const STORAGE_KEY = 'rl_my_menu';
 const NAME_KEY = 'rl_my_name';
 
+// Tones first — sets the relational context before diving into logistics
+const SWIPE_CATEGORIES = [
+  ...MENU_CATEGORIES.filter((c) => c.id === 'tones'),
+  ...MENU_CATEGORIES.filter((c) => c.id !== 'tones'),
+];
+
 function getStoredMenu(): MenuProfile[] {
   if (typeof window === 'undefined') return [];
   const data = localStorage.getItem(STORAGE_KEY);
@@ -57,8 +63,8 @@ export default function MyMenuPage() {
     setLoaded(true);
   }, []);
 
-  const category = MENU_CATEGORIES[categoryIndex];
-  const totalCategories = MENU_CATEGORIES.length;
+  const category = SWIPE_CATEGORIES[categoryIndex];
+  const totalCategories = SWIPE_CATEGORIES.length;
 
   const startNextCategory = () => {
     if (categoryIndex < totalCategories - 1) {

@@ -94,19 +94,12 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
     'bottom-right': { bottom: 0, right: 0, width: '38%', height: '38%' },
   };
 
-  // Label sits inside the triangle, anchored to the corner
+  // Flat (no rotation) text anchored inside each corner
   const labelPos: Record<string, React.CSSProperties> = {
-    'top-left':     { top: '4%', left: '3%', textAlign: 'left' },
-    'top-right':    { top: '4%', right: '3%', textAlign: 'right' },
-    'bottom-left':  { bottom: '4%', left: '3%', textAlign: 'left' },
-    'bottom-right': { bottom: '4%', right: '3%', textAlign: 'right' },
-  };
-
-  const rotation: Record<string, string> = {
-    'top-left': 'rotate(-45deg)',
-    'top-right': 'rotate(45deg)',
-    'bottom-left': 'rotate(45deg)',
-    'bottom-right': 'rotate(-45deg)',
+    'top-left':     { top: 10, left: 10, textAlign: 'left' },
+    'top-right':    { top: 10, right: 10, textAlign: 'right' },
+    'bottom-left':  { bottom: 10, left: 10, textAlign: 'left' },
+    'bottom-right': { bottom: 10, right: 10, textAlign: 'right' },
   };
 
   const origin: Record<string, string> = {
@@ -116,15 +109,16 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
     'bottom-right': 'bottom right',
   };
 
-  const isNotAvailable = tier.label === 'Not Available For';
-  const labelMap: Record<string, string> = {
-    'Actively Want': 'Actively\nWant',
-    'Open To': 'Open To',
-    'Not Sure': 'Not Sure',
+  // Each label broken into lines so it stacks neatly in the corner
+  const labelLines: Record<string, string[]> = {
+    'Actively Want': ['Actively', 'Want'],
+    'Open To': ['Open', 'To'],
+    'Not Sure': ['Not', 'Sure'],
+    'Not Available For': ['Not', 'Available', 'For', 'or N/A'],
   };
-  const labelText = labelMap[tier.label] || tier.label;
+  const lines = labelLines[tier.label] || [tier.label];
 
-  const scale = active ? 1.15 : showHints ? 1.05 : 1;
+  const scale = active ? 1.1 : showHints ? 1.03 : 1;
   const opacity = active ? 1 : showHints ? 0.92 : 0.85;
 
   return (
@@ -141,33 +135,34 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
         }}
       />
 
-      {/* Label — large text directly on the triangle */}
+      {/* Label — flat stacked text inside triangle corner */}
       <div className="absolute inset-0 z-30 pointer-events-none">
         <div
           className="absolute"
-          style={{ ...labelPos[corner], transition: 'all 0.3s ease-out' }}
+          style={{
+            ...labelPos[corner],
+            transform: `scale(${scale})`,
+            transformOrigin: origin[corner],
+            transition: 'all 0.3s ease-out',
+          }}
         >
-          <div
-            style={{
-              transform: `${rotation[corner]} scale(${scale})`,
-              transformOrigin: origin[corner],
-              color: 'white',
-              fontWeight: 800,
-              fontSize: active ? 13 : 11,
-              lineHeight: 1.25,
-              letterSpacing: '0.04em',
-              textTransform: 'uppercase',
-              textShadow: '0 1px 4px rgba(0,0,0,0.25)',
-              transition: 'all 0.3s ease-out',
-              whiteSpace: isNotAvailable ? 'normal' : 'pre-line',
-              maxWidth: isNotAvailable ? 56 : 70,
-              textAlign: 'center',
-            }}
-          >
-            {isNotAvailable
-              ? <>Not Available<br />For<br /><span style={{ fontWeight: 500, opacity: 0.85 }}>or N/A</span></>
-              : labelText}
-          </div>
+          {lines.map((line, i) => (
+            <div
+              key={i}
+              style={{
+                color: 'white',
+                fontWeight: i === lines.length - 1 && tier.label === 'Not Available For' ? 500 : 800,
+                fontSize: active ? 12 : 10,
+                lineHeight: 1.3,
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                textShadow: '0 1px 5px rgba(0,0,0,0.35)',
+                opacity: i === lines.length - 1 && tier.label === 'Not Available For' ? 0.85 : 1,
+              }}
+            >
+              {line}
+            </div>
+          ))}
         </div>
       </div>
     </>
