@@ -125,7 +125,7 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
     'Actively Want': 'Want',
     'Open To': 'Open',
     'Not Sure': 'Unsure',
-    'Not Available For': 'Pass',
+    'Not Available For': 'N/A',
   };
   const pillLabel = pillLabelMap[tier.label] || tier.label;
 
@@ -401,14 +401,15 @@ export default function ChipPool({
                     {topCluster.map((item) => (
                       <button
                         key={item}
-                        className="px-3.5 py-1.5 rounded-full text-sm touch-none"
+                        className="px-4 py-2 rounded-full text-base touch-none"
                         style={{
-                          background: categoryColor + '14',
-                          borderWidth: '1px',
+                          background: categoryColor + '18',
+                          borderWidth: '1.5px',
                           borderStyle: 'solid',
-                          borderColor: categoryColor + '18',
-                          color: 'rgba(0,0,0,0.7)',
-                          fontWeight: 500,
+                          borderColor: categoryColor + '30',
+                          color: 'rgba(0,0,0,0.78)',
+                          fontWeight: 600,
+                          boxShadow: `0 2px 8px ${categoryColor}20`,
                           WebkitUserSelect: 'none',
                         }}
                         onPointerDown={(e) => handlePointerDown(item, e)}

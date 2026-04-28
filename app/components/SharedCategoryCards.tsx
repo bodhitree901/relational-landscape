@@ -17,7 +17,7 @@ const SHORT_TIER_LABELS: Record<Tier, string> = {
   'must-have': 'Want',
   'open': 'Open',
   'maybe': 'Unsure',
-  'off-limits': 'Pass',
+  'off-limits': 'N/A',
 };
 
 const TIER_COLORS_DARK: Record<Tier, string> = {
@@ -151,8 +151,12 @@ export default function SharedCategoryCards({ myConnection, theirConnection, myN
           <div key={cat.id} className="rounded-2xl overflow-hidden transition-all duration-300">
             <button
               onClick={() => { setExpandedId(isExpanded ? null : cat.id); setPeekItem(null); }}
-              className="w-full text-left px-5 py-5 transition-all active:scale-[0.99]"
-              style={{ background: cat.color }}
+              className="w-full text-left px-5 py-5 transition-all active:scale-[0.99] rounded-2xl"
+              style={{
+                background: cat.color,
+                boxShadow: `0 4px 18px ${cat.color}55, inset 0 -2px 6px ${cat.color}40`,
+                border: '2px solid rgba(255,255,255,0.5)',
+              }}
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1">
