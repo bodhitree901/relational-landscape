@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { MENU_CATEGORIES, MenuTier, MENU_TIER_COLORS } from '../../lib/menu-categories';
+import { SUBCATEGORY_DEFINITIONS } from '../../lib/definitions';
 
 interface SharerData {
   name: string;
@@ -35,6 +36,7 @@ export default function MapSharePage() {
   const [expandedTier, setExpandedTier] = useState<MenuTier | null>(null);
   const [peekItem, setPeekItem] = useState<string | null>(null);
   const [showNameModal, setShowNameModal] = useState(false);
+  const [defItem, setDefItem] = useState<string | null>(null);
   const [myName, setMyName] = useState('');
 
   const fromUrlSafeBase64 = (s: string) =>
@@ -160,9 +162,13 @@ export default function MapSharePage() {
                   </div>
 
                   {/* Items grouped by sub-category */}
-                  <div className="px-4 pb-4 pt-1 space-y-4">
+                  <div className="px-4 pb-4 pt-1 space-y-3">
                     {groups.map((group) => (
-                      <div key={group.categoryId}>
+                      <div
+                        key={group.categoryId}
+                        className="rounded-xl px-3 pt-2.5 pb-2"
+                        style={{ background: `${group.categoryColor}10`, border: `1.5px solid ${group.categoryColor}30` }}
+                      >
                         <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: group.categoryColor }}>
                           {group.categoryName}
                         </p>
@@ -170,14 +176,27 @@ export default function MapSharePage() {
                           {group.items.map(({ item, isUnrated }) => {
                             const sharerTier = sharerRatings.get(item);
                             const myTier = myRatings.get(item);
+                            const hasDef = !!SUBCATEGORY_DEFINITIONS[item];
+                            const isDefOpen = defItem === item;
                             return (
-                              <div key={item} style={{ opacity: isUnrated ? 0.35 : 1 }}>
+                              <div key={item} style={{ opacity: isUnrated ? 0.5 : 1 }}>
                                 <div className="flex items-center gap-2 py-0.5">
-                                  <div className="w-[116px] shrink-0 text-right pr-2">
-                                    <span className="text-[11px] leading-tight font-medium" style={{ color: 'rgba(0,0,0,0.72)' }}>
+                                  <button
+                                    className="w-[116px] shrink-0 text-right pr-2"
+                                    onClick={() => hasDef && setDefItem(isDefOpen ? null : item)}
+                                    style={{ cursor: hasDef ? 'pointer' : 'default' }}
+                                  >
+                                    <span
+                                      className="text-[11px] leading-tight font-medium"
+                                      style={{
+                                        color: isDefOpen ? 'rgba(0,0,0,0.9)' : 'rgba(0,0,0,0.72)',
+                                        textDecoration: hasDef ? 'underline dotted' : 'none',
+                                        textUnderlineOffset: '2px',
+                                      }}
+                                    >
                                       {item}
                                     </span>
-                                  </div>
+                                  </button>
                                   <div className="flex-1 flex gap-1">
                                     {TIER_ORDER.map((t) => {
                                       const isSharer = sharerTier === t;
@@ -185,7 +204,7 @@ export default function MapSharePage() {
                                       return (
                                         <button
                                           key={t}
-                                          onClick={() => !isUnrated && handleSetMyTier(item, t)}
+                                          onClick={() => handleSetMyTier(item, t)}
                                           className="flex-1 rounded transition-all active:scale-95"
                                           style={{
                                             height: 24,
@@ -196,13 +215,24 @@ export default function MapSharePage() {
                                               : 'rgba(0,0,0,0.04)',
                                             border: isMine ? `2px solid ${TIER_COLORS_DARK[t]}` : '2px solid transparent',
                                             boxSizing: 'border-box',
-                                            cursor: isUnrated ? 'default' : 'pointer',
                                           }}
                                         />
                                       );
                                     })}
                                   </div>
                                 </div>
+                                {isDefOpen && SUBCATEGORY_DEFINITIONS[item] && (
+                                  <div
+                                    className="ml-[120px] mr-1 mb-1.5 px-3 py-2 rounded-xl text-xs leading-relaxed"
+                                    style={{
+                                      background: `${group.categoryColor}18`,
+                                      color: 'rgba(0,0,0,0.55)',
+                                      animation: 'tooltip-enter 0.15s ease-out',
+                                    }}
+                                  >
+                                    {SUBCATEGORY_DEFINITIONS[item]}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
