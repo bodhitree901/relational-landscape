@@ -41,6 +41,8 @@ export default function MyMenuPage() {
   const [loaded, setLoaded] = useState(false);
   const [expandedTier, setExpandedTier] = useState<MenuTier | null>(null);
   const [peekItem, setPeekItem] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const stored = getStoredMenu();
@@ -263,13 +265,21 @@ export default function MyMenuPage() {
     ];
 
     const handleShare = async () => {
+      if (sharing) return;
+      setSharing(true);
       const data = JSON.stringify({ name: myName, profiles: menuProfiles });
       const token = btoa(encodeURIComponent(data));
       const url = `${window.location.origin}/map-share/${token}`;
-      if (navigator.share) {
-        await navigator.share({ title: `${myName || 'My'} Map`, url });
-      } else {
-        await navigator.clipboard.writeText(url);
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: `${myName || 'My'} Map`, url });
+        } else {
+          await navigator.clipboard.writeText(url);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
+      } finally {
+        setSharing(false);
       }
     };
 
@@ -288,9 +298,19 @@ export default function MyMenuPage() {
         </div>
 
         <div className="px-5 pt-4 pb-6 text-center">
-          <h1 className="text-2xl font-semibold mb-1" style={{ fontFamily: 'Georgia, serif' }}>
+          <h1 className="text-2xl font-semibold mb-3" style={{ fontFamily: 'Georgia, serif' }}>
             {myName ? `${myName}'s Map` : 'My Map'}
           </h1>
+          <button
+            onClick={handleShare}
+            className="text-xs px-4 py-1.5 rounded-full transition-all active:scale-95"
+            style={{
+              background: copied ? 'var(--sage)' : 'rgba(61,53,50,0.06)',
+              color: copied ? 'white' : '#3D3532',
+            }}
+          >
+            {copied ? 'Copied!' : sharing ? '...' : 'Share My Map'}
+          </button>
         </div>
 
         <div className="px-5 space-y-3">
@@ -390,15 +410,6 @@ export default function MyMenuPage() {
           })}
         </div>
 
-        <div className="px-5 mt-8">
-          <button
-            onClick={handleShare}
-            className="w-full py-4 rounded-2xl text-white font-semibold text-base transition-all hover:opacity-90 active:scale-[0.98]"
-            style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
-          >
-            Share My Map
-          </button>
-        </div>
       </div>
     );
   }
