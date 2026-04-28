@@ -125,8 +125,8 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
     'Actively Want': 'Want',
     'Open To': 'Open',
     'Not Sure': 'Unsure',
-    'Not Available For': 'N/A',
   };
+  const isNotAvailable = tier.label === 'Not Available For';
   const pillLabel = pillLabelMap[tier.label] || tier.label;
 
   const pillScale = active ? 1.25 : showHints ? 1.1 : 1;
@@ -157,8 +157,8 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
             transition: 'all 0.3s ease-out',
           }}
         >
-          <span
-            className="inline-block font-bold uppercase tracking-widest whitespace-nowrap"
+          <div
+            className="font-bold uppercase tracking-widest text-center"
             style={{
               transform: `${rotation[corner]} scale(${pillScale})`,
               transformOrigin: origin[corner],
@@ -172,10 +172,15 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
                 ? '0 4px 16px rgba(0,0,0,0.2)'
                 : '0 2px 8px rgba(0,0,0,0.1)',
               transition: 'all 0.3s ease-out',
+              lineHeight: isNotAvailable ? 1.4 : undefined,
+              whiteSpace: isNotAvailable ? 'normal' : 'nowrap',
+              maxWidth: isNotAvailable ? 48 : undefined,
             }}
           >
-            {pillLabel}
-          </span>
+            {isNotAvailable ? (
+              <>Not Available For<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>or</span><br />N/A</>
+            ) : pillLabel}
+          </div>
         </div>
       </div>
     </>
