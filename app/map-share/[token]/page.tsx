@@ -20,11 +20,11 @@ const TIER_COLORS_DARK: Record<MenuTier, string> = {
   'must-have': '#007A6B', 'open': '#5BA84D', 'maybe': '#B8A520', 'off-limits': '#D47020',
 };
 
-const TIER_CONFIG: { key: MenuTier; label: string; gradient: string; includeUnrated?: boolean }[] = [
-  { key: 'must-have',  label: "Easy Yes's",            gradient: 'linear-gradient(135deg, #80C9C1 0%, #95CFA0 100%)' },
-  { key: 'open',       label: "Open For's",             gradient: 'linear-gradient(135deg, #89CFF0 0%, #80C9C1 100%)' },
-  { key: 'maybe',      label: "Maybe's",                gradient: 'linear-gradient(135deg, #F5D06E 0%, #F4A89A 100%)' },
-  { key: 'off-limits', label: "Not Available / Not Selected", gradient: 'linear-gradient(135deg, #F4A89A 0%, #C5A3CF 100%)', includeUnrated: true },
+const TIER_CONFIG: { key: MenuTier; label: string; gradient: string; shadowColor: string; includeUnrated?: boolean }[] = [
+  { key: 'must-have',  label: "Easy Yes's",                  gradient: 'linear-gradient(135deg, #80C9C1 0%, #95CFA0 100%)', shadowColor: '#80C9C1' },
+  { key: 'open',       label: "Open For's",                   gradient: 'linear-gradient(135deg, #89CFF0 0%, #80C9C1 100%)', shadowColor: '#89CFF0' },
+  { key: 'maybe',      label: "Maybe's",                      gradient: 'linear-gradient(135deg, #F5D06E 0%, #F4A89A 100%)', shadowColor: '#F5D06E' },
+  { key: 'off-limits', label: "Not Available / Not Selected", gradient: 'linear-gradient(135deg, #F4A89A 0%, #C5A3CF 100%)', shadowColor: '#F4A89A', includeUnrated: true },
 ];
 
 export default function MapSharePage() {
@@ -111,7 +111,7 @@ export default function MapSharePage() {
 
       {/* Tier accordion cards */}
       <div className="px-5 space-y-3">
-        {TIER_CONFIG.map(({ key, label, gradient, includeUnrated }) => {
+        {TIER_CONFIG.map(({ key, label, gradient, shadowColor, includeUnrated }) => {
           const groups = getTierGroups(key, includeUnrated);
           const totalItems = groups.reduce((sum, g) => sum + g.items.filter(i => !i.isUnrated).length, 0);
           const totalWithUnrated = groups.reduce((sum, g) => sum + g.items.length, 0);
@@ -121,12 +121,16 @@ export default function MapSharePage() {
           if (totalWithUnrated === 0) return null;
 
           return (
-            <div key={key} className="rounded-2xl overflow-hidden shadow-sm">
+            <div key={key} className="rounded-2xl overflow-hidden">
               {/* Card header */}
               <button
                 onClick={() => { setExpandedTier(isExp ? null : key); setPeekItem(null); }}
-                className="w-full text-left px-5 py-5 transition-all active:scale-[0.99]"
-                style={{ background: gradient }}
+                className="w-full text-left px-5 py-5 transition-all active:scale-[0.99] rounded-2xl"
+                style={{
+                  background: gradient,
+                  boxShadow: `0 4px 18px ${shadowColor}55, inset 0 -2px 6px ${shadowColor}40`,
+                  border: '2px solid rgba(255,255,255,0.5)',
+                }}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -187,9 +191,9 @@ export default function MapSharePage() {
                                     style={{ cursor: hasDef ? 'pointer' : 'default' }}
                                   >
                                     <span
-                                      className="text-[11px] leading-tight font-medium"
+                                      className="text-[11.5px] leading-tight font-semibold"
                                       style={{
-                                        color: isDefOpen ? 'rgba(0,0,0,0.9)' : 'rgba(0,0,0,0.72)',
+                                        color: isDefOpen ? 'rgba(0,0,0,0.9)' : 'rgba(0,0,0,0.75)',
                                         textDecoration: hasDef ? 'underline dotted' : 'none',
                                         textUnderlineOffset: '2px',
                                       }}
