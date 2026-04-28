@@ -52,7 +52,7 @@ export default function MapSharePage() {
     );
   }
 
-  // Build heatmap: category rows with tier counts for sharer + my counts
+  // Build heatmap: ALL categories, sharer counts where rated, my counts
   const categoryData = MENU_CATEGORIES.map((cat) => {
     const sharerCounts: Record<MenuTier, number> = { 'must-have': 0, 'open': 0, 'maybe': 0, 'off-limits': 0 };
     const myCounts: Record<MenuTier, number> = { 'must-have': 0, 'open': 0, 'maybe': 0, 'off-limits': 0 };
@@ -60,9 +60,8 @@ export default function MapSharePage() {
       const st = sharerRatings.get(item); if (st) sharerCounts[st]++;
       const mt = myRatings.get(item); if (mt) myCounts[mt]++;
     }
-    const hasSharer = Object.values(sharerCounts).some((c) => c > 0);
-    return { ...cat, sharerCounts, myCounts, hasSharer };
-  }).filter((c) => c.hasSharer);
+    return { ...cat, sharerCounts, myCounts };
+  });
 
   const maxCount = Math.max(...categoryData.flatMap((c) => TIER_ORDER.map((t) => c.sharerCounts[t])), 1);
 
@@ -98,20 +97,21 @@ export default function MapSharePage() {
   };
 
   const activeCat = categoryData.find((c) => c.id === activeCategory);
-  // Items in active category that sharer has rated
+  // ALL items in active category so Person B can rate anything
   const activeCatItems = activeCat
-    ? MENU_CATEGORIES.find((c) => c.id === activeCat.id)?.items.filter((i) => sharerRatings.has(i)) ?? []
+    ? MENU_CATEGORIES.find((c) => c.id === activeCat.id)?.items ?? []
     : [];
 
   return (
     <div className="page-enter min-h-dvh pb-12">
       {/* Header */}
       <div className="px-5 pt-8 pb-4 text-center">
-        <p className="text-xs opacity-40 mb-1 uppercase tracking-wider">You&apos;ve been invited</p>
-        <h1 className="text-2xl font-semibold" style={{ fontFamily: 'Georgia, serif' }}>
-          {sharerData.name}&apos;s Map
+        <h1 className="text-2xl font-semibold mb-2" style={{ fontFamily: 'Georgia, serif' }}>
+          Here&apos;s {sharerData.name}&apos;s Map
         </h1>
-        <p className="text-sm opacity-50 mt-2">Tap a category to fill in your side</p>
+        <p className="text-sm font-semibold" style={{ color: 'rgba(0,0,0,0.5)' }}>
+          Tap any category to fill in your side ↓
+        </p>
       </div>
 
       {/* Progress pill */}
@@ -142,7 +142,7 @@ export default function MapSharePage() {
             <button
               key={cat.id}
               onClick={() => setActiveCategory(cat.id)}
-              className="w-full flex items-center gap-2 transition-all active:scale-[0.98]"
+              className="w-full flex items-center gap-2 transition-all active:scale-[0.98] rounded-lg hover:bg-black/[0.02]"
             >
               <div className="w-[96px] shrink-0 text-right pr-2">
                 <span className="text-[10px] font-medium leading-tight" style={{ color: 'rgba(0,0,0,0.65)' }}>
