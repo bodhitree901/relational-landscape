@@ -80,7 +80,6 @@ const SIDE_TO_CORNER: Record<string, string> = {
 };
 
 function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: TierConfig; active: boolean; corner: string; isDragging: boolean }) {
-  // Triangle clip paths — creates diamond opening in center
   const clipPaths: Record<string, string> = {
     'top-left': 'polygon(0 0, 100% 0, 0 100%)',
     'top-right': 'polygon(0 0, 100% 0, 100% 100%)',
@@ -88,23 +87,21 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
     'bottom-right': 'polygon(100% 0, 0 100%, 100% 100%)',
   };
 
-  // Small triangles in corners — lots of white space between them
   const triangleStyle: Record<string, React.CSSProperties> = {
-    'top-left': { top: 0, left: 0, width: '30%', height: '30%' },
-    'top-right': { top: 0, right: 0, width: '30%', height: '30%' },
-    'bottom-left': { bottom: 0, left: 0, width: '30%', height: '30%' },
-    'bottom-right': { bottom: 0, right: 0, width: '30%', height: '30%' },
+    'top-left':     { top: 0, left: 0, width: '38%', height: '38%' },
+    'top-right':    { top: 0, right: 0, width: '38%', height: '38%' },
+    'bottom-left':  { bottom: 0, left: 0, width: '38%', height: '38%' },
+    'bottom-right': { bottom: 0, right: 0, width: '38%', height: '38%' },
   };
 
-  // Diagonal pill — positioned near the corner triangles
-  const pillPos: Record<string, React.CSSProperties> = {
-    'top-left': { top: '10%', left: '3%' },
-    'top-right': { top: '10%', right: '3%' },
-    'bottom-left': { bottom: '10%', left: '3%' },
-    'bottom-right': { bottom: '10%', right: '3%' },
+  // Label sits inside the triangle, anchored to the corner
+  const labelPos: Record<string, React.CSSProperties> = {
+    'top-left':     { top: '4%', left: '3%', textAlign: 'left' },
+    'top-right':    { top: '4%', right: '3%', textAlign: 'right' },
+    'bottom-left':  { bottom: '4%', left: '3%', textAlign: 'left' },
+    'bottom-right': { bottom: '4%', right: '3%', textAlign: 'right' },
   };
 
-  // Diagonal rotation — pointing inward from each corner
   const rotation: Record<string, string> = {
     'top-left': 'rotate(-45deg)',
     'top-right': 'rotate(45deg)',
@@ -112,29 +109,27 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
     'bottom-right': 'rotate(-45deg)',
   };
 
-  // Transform origin so pill rotates from corner outward
   const origin: Record<string, string> = {
-    'top-left': 'left center',
-    'top-right': 'right center',
-    'bottom-left': 'left center',
-    'bottom-right': 'right center',
+    'top-left': 'top left',
+    'top-right': 'top right',
+    'bottom-left': 'bottom left',
+    'bottom-right': 'bottom right',
   };
 
-  // Pill display labels — short to avoid clipping on mobile
-  const pillLabelMap: Record<string, string> = {
-    'Actively Want': 'Want',
-    'Open To': 'Open',
-    'Not Sure': 'Unsure',
-  };
   const isNotAvailable = tier.label === 'Not Available For';
-  const pillLabel = pillLabelMap[tier.label] || tier.label;
+  const labelMap: Record<string, string> = {
+    'Actively Want': 'Actively\nWant',
+    'Open To': 'Open To',
+    'Not Sure': 'Not Sure',
+  };
+  const labelText = labelMap[tier.label] || tier.label;
 
-  const pillScale = active ? 1.25 : showHints ? 1.1 : 1;
-  const opacity = active ? 1 : showHints ? 0.95 : 0.9;
+  const scale = active ? 1.15 : showHints ? 1.05 : 1;
+  const opacity = active ? 1 : showHints ? 0.92 : 0.85;
 
   return (
     <>
-      {/* Solid triangle background */}
+      {/* Triangle */}
       <div
         className="absolute z-20 pointer-events-none"
         style={{
@@ -142,44 +137,36 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
           clipPath: clipPaths[corner],
           background: tier.color,
           opacity,
-          transition: 'opacity 0.3s ease-out',
+          transition: 'all 0.3s ease-out',
         }}
       />
 
-      {/* Diagonal pill label — floats above triangle, full-size wrapper so labels don't clip */}
-      <div
-        className="absolute inset-0 z-30 pointer-events-none"
-      >
+      {/* Label — large text directly on the triangle */}
+      <div className="absolute inset-0 z-30 pointer-events-none">
         <div
           className="absolute"
-          style={{
-            ...pillPos[corner],
-            transition: 'all 0.3s ease-out',
-          }}
+          style={{ ...labelPos[corner], transition: 'all 0.3s ease-out' }}
         >
           <div
-            className="font-bold uppercase tracking-widest text-center"
             style={{
-              transform: `${rotation[corner]} scale(${pillScale})`,
+              transform: `${rotation[corner]} scale(${scale})`,
               transformOrigin: origin[corner],
-              fontSize: active ? 10 : 8,
               color: 'white',
-              background: 'rgba(0,0,0,0.15)',
-              padding: active ? '7px 16px' : '5px 12px',
-              borderRadius: 20,
-              letterSpacing: '0.08em',
-              boxShadow: active
-                ? '0 4px 16px rgba(0,0,0,0.2)'
-                : '0 2px 8px rgba(0,0,0,0.1)',
+              fontWeight: 800,
+              fontSize: active ? 13 : 11,
+              lineHeight: 1.25,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              textShadow: '0 1px 4px rgba(0,0,0,0.25)',
               transition: 'all 0.3s ease-out',
-              lineHeight: isNotAvailable ? 1.4 : undefined,
-              whiteSpace: isNotAvailable ? 'normal' : 'nowrap',
-              maxWidth: isNotAvailable ? 48 : undefined,
+              whiteSpace: isNotAvailable ? 'normal' : 'pre-line',
+              maxWidth: isNotAvailable ? 56 : 70,
+              textAlign: 'center',
             }}
           >
-            {isNotAvailable ? (
-              <>Not Available For<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>or</span><br />N/A</>
-            ) : pillLabel}
+            {isNotAvailable
+              ? <>Not Available<br />For<br /><span style={{ fontWeight: 500, opacity: 0.85 }}>or N/A</span></>
+              : labelText}
           </div>
         </div>
       </div>
@@ -391,7 +378,23 @@ export default function ChipPool({
                   clusters.push(unratedItems.slice(i, i + CLUSTER_SIZE));
                 }
                 if (clusters.length === 0) {
-                  return <p className="text-sm opacity-30 py-8 text-center">All items sorted — tap Next &rarr;</p>;
+                  const ratingsList = [...ratings.entries()].map(([item, tierId]) => ({ item, tierId }));
+                  return (
+                    <div className="flex flex-col items-center gap-3 py-6">
+                      <p className="text-sm opacity-40">All items sorted!</p>
+                      <button
+                        onClick={() => onComplete(ratingsList)}
+                        className="px-10 py-4 rounded-2xl text-white font-semibold text-lg transition-all hover:opacity-90 active:scale-[0.97]"
+                        style={{
+                          background: `linear-gradient(135deg, ${categoryColor}EE, ${categoryColor}99)`,
+                          boxShadow: `0 4px 20px ${categoryColor}55`,
+                          border: '2px solid rgba(255,255,255,0.4)',
+                        }}
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  );
                 }
                 const topCluster = clusters[0];
                 return (
