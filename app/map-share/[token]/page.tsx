@@ -25,11 +25,12 @@ export default function MapSharePage() {
   const token = params.token as string;
 
   const [myRatings, setMyRatings] = useState<Map<string, MenuTier>>(new Map());
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [showNameModal, setShowNameModal] = useState(false);
   const [myName, setMyName] = useState('');
 
-  const fromUrlSafeBase64 = (s: string) => decodeURIComponent(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - s.length % 4) % 4)));
+  const fromUrlSafeBase64 = (s: string) =>
+    decodeURIComponent(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - s.length % 4) % 4)));
 
   const sharerData = useMemo<SharerData | null>(() => {
     try { return JSON.parse(fromUrlSafeBase64(token)); }
@@ -51,22 +52,6 @@ export default function MapSharePage() {
       </div>
     );
   }
-
-  // Build heatmap: ALL categories, sharer counts where rated, my counts
-  const categoryData = MENU_CATEGORIES.map((cat) => {
-    const sharerCounts: Record<MenuTier, number> = { 'must-have': 0, 'open': 0, 'maybe': 0, 'off-limits': 0 };
-    const myCounts: Record<MenuTier, number> = { 'must-have': 0, 'open': 0, 'maybe': 0, 'off-limits': 0 };
-    for (const item of cat.items) {
-      const st = sharerRatings.get(item); if (st) sharerCounts[st]++;
-      const mt = myRatings.get(item); if (mt) myCounts[mt]++;
-    }
-    return { ...cat, sharerCounts, myCounts };
-  });
-
-  const maxCount = Math.max(...categoryData.flatMap((c) => TIER_ORDER.map((t) => c.sharerCounts[t])), 1);
-
-  const totalSharerItems = sharerRatings.size;
-  const totalMyRated = myRatings.size;
 
   const handleSetMyTier = (item: string, tier: MenuTier) => {
     setMyRatings((prev) => {
@@ -92,192 +77,176 @@ export default function MapSharePage() {
       personA: { name: sharerData.name, profiles: sharerData.profiles },
       personB: { name: myName.trim() || 'You', profiles: personBProfiles },
     };
-    const newToken = btoa(encodeURIComponent(JSON.stringify(combined))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    const newToken = btoa(encodeURIComponent(JSON.stringify(combined)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
     router.push(`/map-compare/${newToken}`);
   };
 
-  const activeCat = categoryData.find((c) => c.id === activeCategory);
-  // ALL items in active category so Person B can rate anything
-  const activeCatItems = activeCat
-    ? MENU_CATEGORIES.find((c) => c.id === activeCat.id)?.items ?? []
-    : [];
+  const totalMyRated = myRatings.size;
+  const totalSharerItems = sharerRatings.size;
 
   return (
-    <div className="page-enter min-h-dvh pb-12">
+    <div className="page-enter min-h-dvh pb-16">
       {/* Header */}
-      <div className="px-5 pt-8 pb-4 text-center">
+      <div className="px-5 pt-8 pb-5 text-center">
         <h1 className="text-2xl font-semibold mb-2" style={{ fontFamily: 'Georgia, serif' }}>
           Here&apos;s {sharerData.name}&apos;s Map
         </h1>
-        <p className="text-sm font-semibold" style={{ color: 'rgba(0,0,0,0.5)' }}>
-          Tap any category to fill in your side ↓
+        <p className="text-sm font-semibold" style={{ color: 'rgba(0,0,0,0.45)' }}>
+          Tap any category to fill in your side
         </p>
       </div>
 
-      {/* Progress pill */}
+      {/* Progress */}
       {totalMyRated > 0 && (
         <div className="mx-5 mb-4 px-4 py-2 rounded-xl text-center" style={{ background: 'rgba(0,0,0,0.04)' }}>
-          <p className="text-xs opacity-50">
-            You&apos;ve rated {totalMyRated} of {totalSharerItems} items
+          <p className="text-xs" style={{ color: 'rgba(0,0,0,0.4)' }}>
+            You&apos;ve filled in {totalMyRated} of {totalSharerItems} items {sharerData.name} rated
           </p>
         </div>
       )}
 
-      {/* Heatmap grid */}
-      <div className="mx-5 watercolor-card bg-white/70 p-4">
-        {/* Tier column headers */}
-        <div className="flex mb-2 pl-[96px]">
-          {TIER_ORDER.map((tier) => (
-            <div key={tier} className="flex-1 text-center">
-              <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: TIER_COLORS_DARK[tier] }}>
-                {SHORT_LABELS[tier]}
-              </span>
-            </div>
-          ))}
-        </div>
+      {/* Category accordion cards */}
+      <div className="px-5 space-y-3">
+        {MENU_CATEGORIES.map((cat) => {
+          const isExpanded = expandedCategory === cat.id;
 
-        {/* Category rows */}
-        <div className="space-y-1.5">
-          {categoryData.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
-              className="w-full flex items-center gap-2 transition-all active:scale-[0.98] rounded-lg hover:bg-black/[0.02]"
-            >
-              <div className="w-[96px] shrink-0 text-right pr-2">
-                <span className="text-[10px] font-medium leading-tight" style={{ color: 'rgba(0,0,0,0.65)' }}>
-                  {cat.name}
-                </span>
-              </div>
-              <div className="flex-1 flex gap-1">
-                {TIER_ORDER.map((tier) => {
-                  const sc = cat.sharerCounts[tier];
-                  const mc = cat.myCounts[tier];
-                  const intensity = sc / maxCount;
-                  return (
-                    <div
-                      key={tier}
-                      className="flex-1 rounded relative flex items-center justify-center"
-                      style={{
-                        height: 36,
-                        background: sc > 0
-                          ? `${MENU_TIER_COLORS[tier]}${Math.round(intensity * 180 + 40).toString(16).padStart(2, '0')}`
-                          : 'rgba(0,0,0,0.03)',
-                      }}
-                    >
-                      {sc > 0 && (
-                        <span className="text-[10px] font-bold" style={{ color: 'rgba(0,0,0,0.5)' }}>{sc}</span>
-                      )}
-                      {mc > 0 && (
-                        <div
-                          className="absolute bottom-1 right-1 w-2 h-2 rounded-full border-[1.5px]"
-                          style={{ borderColor: TIER_COLORS_DARK[tier], background: 'white' }}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </button>
-          ))}
-        </div>
+          // Sharer's counts for this category
+          const sharerCounts: Record<MenuTier, number> = { 'must-have': 0, 'open': 0, 'maybe': 0, 'off-limits': 0 };
+          for (const item of cat.items) {
+            const t = sharerRatings.get(item);
+            if (t) sharerCounts[t]++;
+          }
+          const sharerTotal = Object.values(sharerCounts).reduce((a, b) => a + b, 0);
 
-        {/* Legend */}
-        <div className="mt-3 pt-3 border-t border-black/5 flex items-center gap-5 text-[10px] opacity-40">
-          <div className="flex items-center gap-1.5">
-            <div className="w-5 h-3 rounded" style={{ background: '#009483AA' }} />
-            <span>{sharerData.name}&apos;s ratings</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full border-[1.5px]" style={{ borderColor: '#007A6B', background: 'white' }} />
-            <span>Your ratings</span>
-          </div>
-        </div>
-      </div>
+          // My counts for this category
+          const myTotal = cat.items.filter((i) => myRatings.has(i)).length;
 
-      {/* Category detail popup */}
-      {activeCategory && activeCat && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-black/20"
-            style={{ backdropFilter: 'blur(2px)' }}
-            onClick={() => setActiveCategory(null)}
-          />
-          <div
-            className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-md max-h-[75vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-black/5"
-            style={{ animation: 'tooltip-enter 0.2s ease-out' }}
-          >
-            {/* Popup header */}
-            <div className="sticky top-0 z-10 px-4 py-3 border-b border-black/5 bg-white/95 backdrop-blur-sm flex items-center justify-between">
-              <p className="text-sm font-semibold" style={{ color: activeCat.color }}>{activeCat.name}</p>
-              <button onClick={() => setActiveCategory(null)} className="text-sm opacity-30 hover:opacity-60 p-1">✕</button>
-            </div>
-
-            {/* Tier column headers */}
-            <div className="sticky top-[49px] z-10 bg-white/95 backdrop-blur-sm px-4 pt-2 pb-1">
-              <div className="flex pl-[104px]">
-                {TIER_ORDER.map((tier) => (
-                  <div key={tier} className="flex-1 text-center">
-                    <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: TIER_COLORS_DARK[tier] }}>
-                      {SHORT_LABELS[tier]}
-                    </span>
+          return (
+            <div key={cat.id} className="rounded-2xl overflow-hidden shadow-sm">
+              {/* Card header */}
+              <button
+                onClick={() => setExpandedCategory(isExpanded ? null : cat.id)}
+                className="w-full text-left px-5 py-4 transition-all active:scale-[0.99]"
+                style={{ background: `${cat.color}28` }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-base leading-tight" style={{ color: cat.color }}>
+                      {cat.name}
+                    </h3>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.38)' }}>
+                      {sharerTotal > 0
+                        ? `${sharerData.name} rated ${sharerTotal} item${sharerTotal !== 1 ? 's' : ''}${myTotal > 0 ? ` · You filled in ${myTotal}` : ''}`
+                        : `${sharerData.name} hasn't filled this in yet`}
+                    </p>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Items */}
-            <div className="px-4 pb-4 pt-1 space-y-1">
-              {activeCatItems.map((item) => {
-                const sharerTier = sharerRatings.get(item);
-                const myTier = myRatings.get(item);
-                return (
-                  <div key={item} className="flex items-center gap-1.5 py-1">
-                    <div className="w-[104px] shrink-0 text-right pr-2">
-                      <span className="text-[10px] leading-tight font-medium" style={{ color: 'rgba(0,0,0,0.6)' }}>{item}</span>
-                    </div>
-                    <div className="flex-1 flex gap-1">
-                      {TIER_ORDER.map((t) => {
-                        const isSharer = sharerTier === t;
-                        const isMine = myTier === t;
-                        return (
-                          <button
+                  <div className="flex items-center gap-3 shrink-0">
+                    {/* Mini tier dots showing sharer's distribution */}
+                    {sharerTotal > 0 && (
+                      <div className="flex gap-1 items-center">
+                        {TIER_ORDER.map((t) => sharerCounts[t] > 0 && (
+                          <div
                             key={t}
-                            onClick={() => handleSetMyTier(item, t)}
-                            className="flex-1 rounded transition-all active:scale-95"
+                            className="rounded-full flex items-center justify-center"
                             style={{
-                              height: 26,
-                              background: isSharer
-                                ? `${MENU_TIER_COLORS[t]}CC`
-                                : isMine
-                                ? `${MENU_TIER_COLORS[t]}60`
-                                : 'rgba(0,0,0,0.03)',
-                              border: isMine ? `2px solid ${TIER_COLORS_DARK[t]}` : '2px solid transparent',
-                              boxSizing: 'border-box',
+                              width: 18, height: 18,
+                              background: `${MENU_TIER_COLORS[t]}CC`,
                             }}
-                          />
-                        );
-                      })}
+                          >
+                            <span className="text-[9px] font-bold text-white/80">{sharerCounts[t]}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {myTotal === 0 && (
+                      <span className="text-[10px] font-medium" style={{ color: cat.color, opacity: 0.7 }}>
+                        Fill in →
+                      </span>
+                    )}
+                    <span className="text-xs" style={{ color: 'rgba(0,0,0,0.25)' }}>{isExpanded ? '▲' : '▼'}</span>
+                  </div>
+                </div>
+              </button>
+
+              {/* Expanded items */}
+              {isExpanded && (
+                <div
+                  className="border-x border-b border-black/5 rounded-b-2xl"
+                  style={{ background: 'rgba(255,255,255,0.97)', animation: 'tooltip-enter 0.2s ease-out' }}
+                >
+                  {/* Tier column headers */}
+                  <div className="flex pl-[120px] pr-4 pt-3 pb-1">
+                    {TIER_ORDER.map((t) => (
+                      <div key={t} className="flex-1 text-center">
+                        <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: TIER_COLORS_DARK[t] }}>
+                          {SHORT_LABELS[t]}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Items */}
+                  <div className="px-4 pb-4 pt-1 space-y-1">
+                    {cat.items.map((item) => {
+                      const sharerTier = sharerRatings.get(item);
+                      const myTier = myRatings.get(item);
+                      const isSharerRated = !!sharerTier;
+
+                      return (
+                        <div key={item} className="flex items-center gap-2 py-0.5" style={{ opacity: isSharerRated ? 1 : 0.45 }}>
+                          <div className="w-[116px] shrink-0 text-right pr-2">
+                            <span className="text-[11px] leading-tight font-medium" style={{ color: 'rgba(0,0,0,0.7)' }}>
+                              {item}
+                            </span>
+                          </div>
+                          <div className="flex-1 flex gap-1">
+                            {TIER_ORDER.map((t) => {
+                              const isSharer = sharerTier === t;
+                              const isMine = myTier === t;
+                              return (
+                                <button
+                                  key={t}
+                                  onClick={() => handleSetMyTier(item, t)}
+                                  className="flex-1 rounded transition-all active:scale-95"
+                                  style={{
+                                    height: 24,
+                                    background: isSharer
+                                      ? `${MENU_TIER_COLORS[t]}CC`
+                                      : isMine
+                                      ? `${MENU_TIER_COLORS[t]}50`
+                                      : 'rgba(0,0,0,0.04)',
+                                    border: isMine ? `2px solid ${TIER_COLORS_DARK[t]}` : '2px solid transparent',
+                                    boxSizing: 'border-box',
+                                  }}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Legend inside card */}
+                  <div className="mx-4 mb-4 pt-2 border-t border-black/5 flex items-center gap-5 text-[10px]" style={{ color: 'rgba(0,0,0,0.35)' }}>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-5 h-3 rounded" style={{ background: `${cat.color}CC` }} />
+                      <span>{sharerData.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-5 h-3 rounded border-2" style={{ borderColor: TIER_COLORS_DARK['must-have'], background: `${MENU_TIER_COLORS['must-have']}50` }} />
+                      <span>You (tap to select)</span>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              )}
             </div>
-
-            {/* Popup legend */}
-            <div className="px-4 pb-4 flex items-center gap-5 text-[10px] opacity-40 border-t border-black/5 pt-3">
-              <div className="flex items-center gap-1.5">
-                <div className="w-5 h-4 rounded" style={{ background: '#009483CC' }} />
-                <span>{sharerData.name}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-5 h-4 rounded border-2" style={{ borderColor: '#007A6B', background: '#00948360' }} />
-                <span>You (tap to select)</span>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+          );
+        })}
+      </div>
 
       {/* See Our Map Together */}
       <div className="px-5 mt-8">
@@ -288,9 +257,11 @@ export default function MapSharePage() {
         >
           See Our Map Together
         </button>
-        <p className="text-center text-xs opacity-30 mt-2">
-          {totalMyRated} of {totalSharerItems} items rated
-        </p>
+        {totalMyRated > 0 && (
+          <p className="text-center text-xs mt-2" style={{ color: 'rgba(0,0,0,0.3)' }}>
+            {totalMyRated} item{totalMyRated !== 1 ? 's' : ''} filled in
+          </p>
+        )}
       </div>
 
       {/* Name bottom sheet */}
@@ -308,7 +279,7 @@ export default function MapSharePage() {
             <h3 className="text-lg font-semibold text-center mb-1" style={{ fontFamily: 'Georgia, serif' }}>
               What&apos;s your name?
             </h3>
-            <p className="text-xs opacity-40 text-center mb-6">
+            <p className="text-xs text-center mb-6" style={{ color: 'rgba(0,0,0,0.4)' }}>
               So {sharerData.name} knows who mapped with them
             </p>
             <input
