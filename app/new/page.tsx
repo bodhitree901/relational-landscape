@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Connection, CategoryRatings, SubcategoryRating, Tier, Category } from '../lib/types';
-import { getCategoriesWithCustom, addCustomSubcategory } from '../lib/storage';
-import { saveConnection } from '../lib/storage';
+import { getCategoriesWithCustom, addCustomSubcategory, saveConnection } from '../lib/storage';
 import ColorPicker from '../components/ColorPicker';
 import ChipPool, { ChipRating } from '../components/ChipPool';
 import { CONNECTION_TIERS } from '../lib/tier-configs';
@@ -60,7 +59,7 @@ export default function NewConnection() {
     if (categoryIndex < categories.length - 1) {
       setCategoryIndex(categoryIndex + 1);
     } else {
-      // Last category — save
+      // Last category — save using the updated ratings
       const updatedRatings = [...categoryRatings.filter((c) => c.categoryId !== cat.id)];
       if (ratings.length > 0) {
         updatedRatings.push({ categoryId: cat.id, ratings });

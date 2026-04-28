@@ -12,6 +12,9 @@ import { CONNECTION_TIERS } from '../../lib/tier-configs';
 import InstructionOverlay from '../../components/InstructionOverlay';
 import ColorPicker, { ConnectionCircle } from '../../components/ColorPicker';
 import WordCloud from '../../components/WordCloud';
+import Highlights from '../../components/Highlights';
+import CategoryCards from '../../components/CategoryCards';
+import SharedCategoryCards from '../../components/SharedCategoryCards';
 import Link from 'next/link';
 
 type Step = 'loading' | 'error' | 'intro' | 'name' | 'instructions' | 'category' | 'submitting' | 'results';
@@ -155,64 +158,31 @@ export default function SharePage() {
     );
   }
 
-  // Intro — Person B sees Person A's profile
+  // Intro — clean invite page
   if (step === 'intro' && theirProfile) {
-    const theirRatings = theirProfile.categories.flatMap((c) => c.ratings);
-    const theirCore = theirRatings.filter((r) => r.tier === 'core').map((r) => r.subcategory);
-    const theirRhythm = theirRatings.filter((r) => r.tier === 'rhythm').map((r) => r.subcategory);
     const theirColor = theirProfile.color || theirProfile.emoji || '#C5A3CF';
+    const sharerName = theirProfile.name;
 
     return (
-      <div className="page-enter min-h-dvh pb-8">
-        <div className="px-5 pt-8 pb-4 flex flex-col items-center text-center">
-          <ConnectionCircle color={theirColor} size={56} />
-          <h1 className="text-2xl font-semibold mt-3 mb-2">{theirProfile.name}&rsquo;s View</h1>
-          <p className="text-sm opacity-50 max-w-xs">
-            {theirProfile.name} mapped how they see your connection. Now it&rsquo;s your turn.
+      <div className="page-enter flex flex-col min-h-dvh">
+        <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
+          <ConnectionCircle color={theirColor} size={72} />
+          <h1 className="text-2xl font-semibold mt-5 mb-3">
+            {sharerName} wants to map this connection with you
+          </h1>
+          <p className="text-sm opacity-50 max-w-xs leading-relaxed mb-2">
+            You&rsquo;ll each independently map what you want from this connection. Then you&rsquo;ll see where you align.
           </p>
-        </div>
-
-        <div className="mx-5 watercolor-card bg-white/50 p-5 mb-6">
-          <h2 className="text-sm font-medium opacity-50 mb-2 uppercase tracking-wide text-center">
-            How {theirProfile.name} sees this connection
-          </h2>
-          <WordCloud connection={theirProfile} />
-        </div>
-
-        <div className="mx-5 mb-6 space-y-2">
-          {theirCore.length > 0 && (
-            <div className="watercolor-card watercolor-rose p-3">
-              <p className="text-xs opacity-40 mb-1">Core to the connection</p>
-              <div className="flex flex-wrap gap-1.5">
-                {theirCore.map((s) => (
-                  <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-rose/20">{s}</span>
-                ))}
-              </div>
-            </div>
-          )}
-          {theirRhythm.length > 0 && (
-            <div className="watercolor-card watercolor-blue p-3">
-              <p className="text-xs opacity-40 mb-1">Part of the rhythm</p>
-              <div className="flex flex-wrap gap-1.5">
-                {theirRhythm.map((s) => (
-                  <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-blue/20">{s}</span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="px-5">
+          <p className="text-xs opacity-30 max-w-xs mb-10">
+            No account needed &middot; Takes about 5 minutes
+          </p>
           <button
             onClick={() => setStep('name')}
-            className="w-full py-3 rounded-2xl text-white font-medium text-base transition-all hover:opacity-90 active:scale-[0.98]"
-            style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
+            className="w-full max-w-xs py-3.5 rounded-2xl text-white font-medium text-base transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{ background: theirColor }}
           >
-            Map your side of this connection
+            Fill out your side
           </button>
-          <p className="text-center text-xs opacity-30 mt-3">
-            No account needed — just fill it out and see where you overlap
-          </p>
         </div>
       </div>
     );
@@ -303,140 +273,147 @@ export default function SharePage() {
     );
   }
 
-  // Results
-  if (step === 'results' && overlap && myConnection && theirProfile) {
-    const myClr = myConnection.color || myConnection.emoji || '#89CFF0';
-    const theirColor = theirProfile.color || theirProfile.emoji || '#C5A3CF';
-
+  // Results — full summary page with My View / Shared View toggle
+  if (step === 'results' && myConnection && theirProfile) {
     return (
-      <div className="page-enter min-h-dvh pb-8">
-        <div className="px-5 pt-5 pb-3">
-          <Link href="/" className="text-sm opacity-60 hover:opacity-100 transition-opacity">
-            Relational Landscape &rarr;
-          </Link>
-        </div>
-
-        <div className="flex flex-col items-center px-5 pt-4 pb-6">
-          <div className="flex items-center gap-4 mb-3">
-            <ConnectionCircle color={myClr} size={44} />
-            <span className="text-lg opacity-20">&</span>
-            <ConnectionCircle color={theirColor} size={44} />
-          </div>
-          <h1 className="text-2xl font-semibold">
-            {myConnection.name} & {theirProfile.name}
-          </h1>
-          <p className="text-sm opacity-50 mt-1">Where you overlap</p>
-        </div>
-
-        {/* Success message */}
-        {!submitError && (
-          <div className="mx-5 mb-6 watercolor-card p-4 text-center" style={{ background: 'rgba(139,190,140,0.12)' }}>
-            <p className="text-sm font-medium opacity-70">Your response has been sent to {theirProfile.name}</p>
-            <p className="text-xs opacity-40 mt-1">It will appear on their dashboard automatically</p>
-          </div>
-        )}
-        {submitError && (
-          <div className="mx-5 mb-6 watercolor-card watercolor-rose p-4 text-center">
-            <p className="text-sm opacity-70">Couldn&rsquo;t send — but here are your results</p>
-            <p className="text-xs opacity-40 mt-1">{submitError}</p>
-          </div>
-        )}
-
-        {overlap.sharedCore.length > 0 && (
-          <div className="mx-5 watercolor-card watercolor-rose p-4 mb-3">
-            <p className="text-xs font-medium opacity-50 mb-2 uppercase tracking-wide">Both see as core</p>
-            <div className="flex flex-wrap gap-2">
-              {overlap.sharedCore.map((s) => (
-                <span key={s} className="text-sm px-3 py-1.5 rounded-full bg-rose/25 font-medium">{s}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {overlap.sharedRhythm.length > 0 && (
-          <div className="mx-5 watercolor-card watercolor-blue p-4 mb-3">
-            <p className="text-xs font-medium opacity-50 mb-2 uppercase tracking-wide">Shared rhythm</p>
-            <div className="flex flex-wrap gap-2">
-              {overlap.sharedRhythm.map((s) => (
-                <span key={s} className="text-sm px-3 py-1.5 rounded-full bg-blue/20">{s}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {overlap.sharedSometimes.length > 0 && (
-          <div className="mx-5 watercolor-card watercolor-gold p-4 mb-3">
-            <p className="text-xs font-medium opacity-50 mb-2 uppercase tracking-wide">Both notice sometimes</p>
-            <div className="flex flex-wrap gap-2">
-              {overlap.sharedSometimes.map((s) => (
-                <span key={s} className="text-sm px-3 py-1.5 rounded-full bg-gold/20">{s}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {overlap.sharedPotential.length > 0 && (
-          <div className="mx-5 watercolor-card watercolor-peach p-4 mb-3">
-            <p className="text-xs font-medium opacity-50 mb-2 uppercase tracking-wide">Both see potential</p>
-            <div className="flex flex-wrap gap-2">
-              {overlap.sharedPotential.map((s) => (
-                <span key={s} className="text-sm px-3 py-1.5 rounded-full bg-peach/20">{s}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="mx-5 flex gap-3 mb-6 mt-4">
-          {overlap.uniqueToMe.length > 0 && (
-            <div className="flex-1 watercolor-card bg-white/50 p-4">
-              <p className="text-xs font-medium opacity-40 mb-2">Only you named</p>
-              <div className="flex flex-wrap gap-1.5">
-                {overlap.uniqueToMe.map((u) => (
-                  <span key={u.sub} className="text-xs px-2 py-1 rounded-full bg-black/5">{u.sub}</span>
-                ))}
-              </div>
-            </div>
-          )}
-          {overlap.uniqueToThem.length > 0 && (
-            <div className="flex-1 watercolor-card bg-white/50 p-4">
-              <p className="text-xs font-medium opacity-40 mb-2">Only {theirProfile.name} named</p>
-              <div className="flex flex-wrap gap-1.5">
-                {overlap.uniqueToThem.map((u) => (
-                  <span key={u.sub} className="text-xs px-2 py-1 rounded-full bg-black/5">{u.sub}</span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mx-5 watercolor-card watercolor-lavender p-5 mb-6">
-          <h2 className="text-sm font-medium opacity-50 mb-3 uppercase tracking-wide">Reading Your Overlap</h2>
-          <div className="space-y-3">
-            {overlap.overlapSummary.split('\n\n').map((paragraph, i) => (
-              <p key={i} className="text-sm leading-relaxed opacity-75">{paragraph}</p>
-            ))}
-          </div>
-        </div>
-
-        <div className="mx-5 space-y-3 mb-6">
-          <div className="watercolor-card bg-white/50 p-4">
-            <div className="flex items-center gap-2 mb-2 justify-center">
-              <ConnectionCircle color={myClr} size={16} />
-              <p className="text-xs font-medium opacity-40">Your view</p>
-            </div>
-            <WordCloud connection={myConnection} />
-          </div>
-          <div className="watercolor-card bg-white/50 p-4">
-            <div className="flex items-center gap-2 mb-2 justify-center">
-              <ConnectionCircle color={theirColor} size={16} />
-              <p className="text-xs font-medium opacity-40">{theirProfile.name}&rsquo;s view</p>
-            </div>
-            <WordCloud connection={theirProfile} />
-          </div>
-        </div>
-      </div>
+      <ShareResults
+        myConnection={myConnection}
+        theirProfile={theirProfile}
+        overlap={overlap}
+        submitError={submitError}
+      />
     );
   }
 
   return null;
+}
+
+function ShareResults({
+  myConnection,
+  theirProfile,
+  overlap,
+  submitError,
+}: {
+  myConnection: Connection;
+  theirProfile: Connection;
+  overlap: OverlapResult | null;
+  submitError: string;
+}) {
+  const [viewMode, setViewMode] = useState<'shared' | 'my'>('shared');
+  const myClr = myConnection.color || myConnection.emoji || '#89CFF0';
+  const theirColor = theirProfile.color || theirProfile.emoji || '#C5A3CF';
+
+  return (
+    <div className="page-enter min-h-dvh pb-8">
+      {/* Header */}
+      <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+        <Link href="/" className="text-sm opacity-60 hover:opacity-100 transition-opacity">
+          Relational Landscape &rarr;
+        </Link>
+      </div>
+
+      {/* Identity */}
+      <div className="flex flex-col items-center px-5 pt-4 pb-4">
+        <ConnectionCircle color={myClr} size={56} />
+        <h1 className="text-2xl font-semibold mt-3">{theirProfile.name}</h1>
+      </div>
+
+      {/* Success / Error message */}
+      {!submitError ? (
+        <div className="mx-5 mb-4 rounded-2xl p-3 text-center" style={{ background: 'rgba(0,148,131,0.08)' }}>
+          <p className="text-sm font-medium" style={{ color: '#009483' }}>Sent to {theirProfile.name}</p>
+          <p className="text-xs opacity-40 mt-0.5">They&rsquo;ll see your response on their dashboard</p>
+        </div>
+      ) : (
+        <div className="mx-5 mb-4 rounded-2xl p-3 text-center" style={{ background: 'rgba(255,148,72,0.1)' }}>
+          <p className="text-sm opacity-70">Couldn&rsquo;t send &mdash; but here are your results</p>
+          <p className="text-xs opacity-40 mt-0.5">{submitError}</p>
+        </div>
+      )}
+
+      {/* Sign up CTA */}
+      <div className="mx-5 mb-4 rounded-2xl p-4 text-center" style={{ background: 'linear-gradient(135deg, rgba(244,168,154,0.1), rgba(197,163,207,0.1))' }}>
+        <p className="text-sm font-medium opacity-70">Want to save this connection?</p>
+        <p className="text-xs opacity-40 mt-0.5 mb-3">Sign up to keep your map, build your own landscape, and share with others</p>
+        <Link
+          href="/"
+          className="inline-block px-5 py-2 rounded-full text-white text-sm font-medium transition-all hover:opacity-90 active:scale-[0.98]"
+          style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
+        >
+          Get started
+        </Link>
+      </div>
+
+      {/* View Toggle */}
+      <div className="px-5 mb-6">
+        <div className="flex rounded-xl overflow-hidden border border-black/10">
+          <button
+            onClick={() => setViewMode('shared')}
+            className="flex-1 py-2.5 text-sm font-medium transition-all"
+            style={{
+              background: viewMode === 'shared' ? (myClr) : 'transparent',
+              color: viewMode === 'shared' ? 'white' : 'rgba(0,0,0,0.4)',
+            }}
+          >
+            Shared View
+          </button>
+          <button
+            onClick={() => setViewMode('my')}
+            className="flex-1 py-2.5 text-sm font-medium transition-all"
+            style={{
+              background: viewMode === 'my' ? (myClr) : 'transparent',
+              color: viewMode === 'my' ? 'white' : 'rgba(0,0,0,0.4)',
+            }}
+          >
+            My View
+          </button>
+        </div>
+      </div>
+
+      {/* ===== SHARED VIEW ===== */}
+      {viewMode === 'shared' && (
+        <>
+          {/* Highlights with mutual comparison */}
+          <div className="px-5 mb-8">
+            <Highlights
+              connection={myConnection}
+              theirConnection={theirProfile}
+              theirName={theirProfile.name}
+            />
+          </div>
+
+          {/* Connection Landscape (shared heat map) */}
+          <div className="px-5 mb-8">
+            <h2 className="text-2xl font-extrabold uppercase tracking-wide mb-3 px-1" style={{ color: 'rgba(0,0,0,0.7)' }}>
+              Connection Landscape
+            </h2>
+            <SharedCategoryCards
+              myConnection={myConnection}
+              theirConnection={theirProfile}
+              myName={myConnection.name}
+              theirName={theirProfile.name}
+            />
+          </div>
+        </>
+      )}
+
+      {/* ===== MY VIEW ===== */}
+      {viewMode === 'my' && (
+        <>
+          {/* Highlights (solo — Person B's own answers) */}
+          <div className="px-5 mb-8">
+            <Highlights connection={myConnection} />
+          </div>
+
+          {/* Connection Landscape */}
+          <div className="px-5 mb-8">
+            <h2 className="text-2xl font-extrabold uppercase tracking-wide mb-3 px-1" style={{ color: 'rgba(0,0,0,0.7)' }}>
+              Connection Landscape
+            </h2>
+            <CategoryCards connection={myConnection} />
+          </div>
+        </>
+      )}
+    </div>
+  );
 }

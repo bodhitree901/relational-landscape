@@ -11,7 +11,7 @@ export function encodeConnection(connection: Connection): string {
       i: cat.categoryId,
       r: cat.ratings.map((r) => ({
         s: r.subcategory,
-        t: r.tier[0], // just first letter: p, s, r, c
+        t: r.tier === 'must-have' ? 'M' : r.tier === 'open' ? 'O' : r.tier === 'maybe' ? 'Y' : 'X',
       })),
     })),
     t: {
@@ -39,11 +39,17 @@ export function decodeConnection(encoded: string): Connection | null {
     }
     const slim = JSON.parse(json);
 
-    const tierMap: Record<string, 'potential' | 'sometimes' | 'rhythm' | 'core'> = {
-      p: 'potential',
-      s: 'sometimes',
-      r: 'rhythm',
-      c: 'core',
+    const tierMap: Record<string, 'must-have' | 'open' | 'maybe' | 'off-limits'> = {
+      // New encoding
+      M: 'must-have',
+      O: 'open',
+      Y: 'maybe',
+      X: 'off-limits',
+      // Legacy encoding (backward compat)
+      c: 'must-have',
+      r: 'open',
+      s: 'maybe',
+      p: 'off-limits',
     };
 
     return {
@@ -56,7 +62,7 @@ export function decodeConnection(encoded: string): Connection | null {
         categoryId: cat.i,
         ratings: cat.r.map((r: { s: string; t: string }) => ({
           subcategory: r.s,
-          tier: tierMap[r.t] || 'sometimes',
+          tier: tierMap[r.t] || 'maybe',
         })),
       })),
       timeRhythm: {
@@ -70,8 +76,13 @@ export function decodeConnection(encoded: string): Connection | null {
   }
 }
 
-export function generateShareUrl(connection: Connection): string {
-  const encoded = encodeConnection(connection);
+export function generateShareUrl(connection: Connection, sharerName?: string): string {
+  // If we have the sharer's name, swap it into the encoded profile
+  // so the recipient sees who sent it, not the connection target's name
+  const toEncode = sharerName
+    ? { ...connection, name: sharerName }
+    : connection;
+  const encoded = encodeConnection(toEncode);
   if (typeof window !== 'undefined') {
     return `${window.location.origin}/compare?profile=${encodeURIComponent(encoded)}`;
   }

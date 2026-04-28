@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MENU_CATEGORIES, MenuTier, MenuRating, MenuProfile, MENU_TIER_COLORS, MENU_TIER_LABELS } from '../lib/menu-categories';
+import { MENU_CATEGORIES, MenuTier, MenuRating, MenuProfile, MENU_TIER_COLORS } from '../lib/menu-categories';
 import ChipPool, { ChipRating } from '../components/ChipPool';
 import { MENU_TIERS } from '../lib/tier-configs';
 import Link from 'next/link';
+import { SUBCATEGORY_DEFINITIONS } from '../lib/definitions';
 
 const STORAGE_KEY = 'rl_my_menu';
+const NAME_KEY = 'rl_my_name';
 
 function getStoredMenu(): MenuProfile[] {
   if (typeof window === 'undefined') return [];
@@ -18,20 +20,37 @@ function saveMenu(menu: MenuProfile[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(menu));
 }
 
-type Step = 'intro' | 'swiping' | 'category-done' | 'complete';
+function getStoredName(): string {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem(NAME_KEY) || '';
+}
+
+function saveName(name: string) {
+  localStorage.setItem(NAME_KEY, name);
+}
+
+
+type Step = 'name' | 'intro' | 'swiping' | 'complete';
 
 export default function MyMenuPage() {
-  const [step, setStep] = useState<Step>('intro');
+  const [step, setStep] = useState<Step>('name');
   const [categoryIndex, setCategoryIndex] = useState(0);
   const [menuProfiles, setMenuProfiles] = useState<MenuProfile[]>([]);
   const [currentRatings, setCurrentRatings] = useState<MenuRating[]>([]);
+  const [myName, setMyName] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const [expandedTier, setExpandedTier] = useState<MenuTier | null>(null);
+  const [peekItem, setPeekItem] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = getStoredMenu();
+    const storedName = getStoredName();
+    if (storedName) setMyName(storedName);
     if (stored.length > 0) {
       setMenuProfiles(stored);
       setStep('complete');
+    } else if (storedName) {
+      setStep('intro');
     }
     setLoaded(true);
   }, []);
@@ -49,63 +68,112 @@ export default function MyMenuPage() {
     }
   };
 
-  const startFromCategory = (index: number) => {
-    setCategoryIndex(index);
-    setCurrentRatings([]);
-    setStep('swiping');
-  };
-
   if (!loaded) return null;
 
-  // Intro
-  if (step === 'intro') {
+  // Name step
+  if (step === 'name') {
     return (
-      <div className="page-enter min-h-dvh flex flex-col">
+      <div className="page-enter flex flex-col min-h-dvh">
         <div className="px-5 pt-5 pb-3">
           <Link href="/" className="text-sm opacity-60 hover:opacity-100 transition-opacity">
             &larr; Home
           </Link>
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
+        <div className="flex-1 flex flex-col items-center justify-center px-8">
           <h1
-            className="text-2xl font-semibold mb-3"
+            className="text-2xl font-semibold mb-2 text-center"
             style={{ fontFamily: 'Georgia, serif' }}
           >
-            My Menu
+            My Map
           </h1>
-          <p className="text-sm opacity-50 max-w-xs mb-2 leading-relaxed">
-            What are you open to across your relationships? Drag items toward the edges to sort them, or tap to cycle.
+          <p className="text-sm opacity-50 mb-8 text-center">
+            What&rsquo;s your name? This is how you&rsquo;ll appear when you share.
           </p>
-          <p className="text-xs opacity-30 max-w-xs mb-10 leading-relaxed">
-            This is about you — not any specific person. You can always come back and change things.
+          <input
+            type="text"
+            value={myName}
+            onChange={(e) => setMyName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && myName.trim()) {
+                saveName(myName.trim());
+                setStep('intro');
+              }
+            }}
+            placeholder="Your name..."
+            className="w-full max-w-xs text-center text-xl bg-transparent border-b-2 border-black/10 focus:border-black/30 outline-none pb-2 placeholder:opacity-30 transition-colors"
+            autoFocus
+          />
+          <button
+            onClick={() => {
+              if (!myName.trim()) return;
+              saveName(myName.trim());
+              setStep('intro');
+            }}
+            disabled={!myName.trim()}
+            className="mt-8 px-8 py-3 rounded-2xl text-white font-medium transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-30"
+            style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Intro
+  if (step === 'intro') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-8">
+        <div className="absolute inset-0 bg-black/20 backdrop-blur-[4px]" />
+        <div className="relative watercolor-card bg-[var(--background)] p-8 max-w-sm w-full animate-tooltip">
+          <h2
+            className="text-xl font-semibold text-center mb-2"
+            style={{ fontFamily: 'Georgia, serif' }}
+          >
+            My Map
+          </h2>
+          <p className="text-xs opacity-40 text-center mb-6">
+            What are you open to across your relationships?
           </p>
 
-          <div className="w-full max-w-xs space-y-2 mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full" style={{ background: MENU_TIER_COLORS['must-have'] }} />
-              <span className="text-sm opacity-60">{MENU_TIER_LABELS['must-have']} — drag right</span>
+          <div className="space-y-5 mb-8">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg" style={{ background: 'rgba(197,163,207,0.15)' }}>
+                {'\u{1F446}'}
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-0.5">Tap</p>
+                <p className="text-xs opacity-50 leading-relaxed">See what each item means</p>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full" style={{ background: MENU_TIER_COLORS['open'] }} />
-              <span className="text-sm opacity-60">{MENU_TIER_LABELS['open']} — drag up</span>
+
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg" style={{ background: 'rgba(244,168,154,0.15)' }}>
+                {'\u{1F44B}'}
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-0.5">Drag to an edge</p>
+                <p className="text-xs opacity-50 leading-relaxed">Sort each item into a tier — this is about you, not any specific person</p>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full" style={{ background: MENU_TIER_COLORS['maybe'] }} />
-              <span className="text-sm opacity-60">{MENU_TIER_LABELS['maybe']} — drag down</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full" style={{ background: MENU_TIER_COLORS['off-limits'] }} />
-              <span className="text-sm opacity-60">{MENU_TIER_LABELS['off-limits']} — drag left</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full opacity-30" style={{ background: '#888' }} />
-              <span className="text-sm opacity-60">Tap any chip to cycle through tiers</span>
+
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(137,207,240,0.15)' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-40">
+                  <polyline points="1 4 1 10 7 10" />
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-0.5">Undo</p>
+                <p className="text-xs opacity-50 leading-relaxed">Tap the undo button to bring back the last sorted item</p>
+              </div>
             </div>
           </div>
 
           <button
             onClick={() => { setStep('swiping'); setCategoryIndex(0); setCurrentRatings([]); }}
-            className="px-10 py-3 rounded-2xl text-white font-medium transition-all hover:opacity-90 active:scale-[0.98]"
+            className="w-full py-3 rounded-2xl text-white font-medium text-base transition-all hover:opacity-90 active:scale-[0.98]"
             style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
           >
             Start
@@ -139,7 +207,7 @@ export default function MyMenuPage() {
             const updated = [...menuProfiles.filter((p) => p.categoryId !== category.id), profile];
             setMenuProfiles(updated);
             saveMenu(updated);
-            setStep('category-done');
+            startNextCategory();
           }}
           onBack={() => {
             if (categoryIndex > 0) {
@@ -157,112 +225,62 @@ export default function MyMenuPage() {
     );
   }
 
-  // Category done
-  if (step === 'category-done') {
-    const catProfile = menuProfiles.find((p) => p.categoryId === category.id);
-    const rated = catProfile?.ratings || [];
-    const tiers: { key: MenuTier; label: string }[] = [
-      { key: 'must-have', label: MENU_TIER_LABELS['must-have'] },
-      { key: 'open', label: MENU_TIER_LABELS['open'] },
-      { key: 'maybe', label: MENU_TIER_LABELS['maybe'] },
-      { key: 'off-limits', label: MENU_TIER_LABELS['off-limits'] },
-    ];
-    const skipped = category.items.filter((item) => !rated.some((r) => r.item === item));
 
-    return (
-      <div className="page-enter min-h-dvh flex flex-col">
-        <div className="px-5 pt-5 pb-2 flex items-center justify-between">
-          <button
-            onClick={() => startFromCategory(categoryIndex)}
-            className="text-sm opacity-60 hover:opacity-100 transition-opacity"
-          >
-            &larr; Redo
-          </button>
-          <p className="text-sm font-medium" style={{ color: category.color }}>
-            {category.name}
-          </p>
-          <div className="w-12" />
-        </div>
-
-        <div className="flex-1 px-5 pt-4 pb-6 overflow-y-auto">
-          <div className="text-center mb-5">
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center mb-3 mx-auto"
-              style={{ background: category.color + '20' }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={category.color} strokeWidth="2" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-            </div>
-            <p className="text-xs opacity-40">
-              {rated.length} of {category.items.length} rated
-            </p>
-          </div>
-
-          <div className="space-y-3 max-w-sm mx-auto">
-            {tiers.map(({ key, label }) => {
-              const tierItems = rated.filter((r) => r.tier === key);
-              if (tierItems.length === 0) return null;
-              return (
-                <div key={key}>
-                  <p className="text-xs font-medium opacity-50 mb-1.5">{label}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {tierItems.map((r) => (
-                      <span
-                        key={r.item}
-                        className="text-xs px-2.5 py-1 rounded-full"
-                        style={{ background: MENU_TIER_COLORS[key] + '20', color: MENU_TIER_COLORS[key] }}
-                      >
-                        {r.item}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-
-            {skipped.length > 0 && (
-              <div>
-                <p className="text-xs font-medium opacity-30 mb-1.5">Skipped</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {skipped.map((item) => (
-                    <span key={item} className="text-xs px-2.5 py-1 rounded-full bg-black/5 opacity-40">
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="px-5 pb-5">
-          <button
-            onClick={startNextCategory}
-            className="w-full py-3 rounded-2xl text-white font-medium transition-all hover:opacity-90 active:scale-[0.98]"
-            style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
-          >
-            {categoryIndex < totalCategories - 1 ? `Next: ${MENU_CATEGORIES[categoryIndex + 1].name}` : 'See My Menu'}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Complete — show full menu
+  // Complete — tier accordion cards with heatmap rows + share
   if (step === 'complete') {
-    const allRatings = menuProfiles.flatMap((p) => p.ratings);
-    const mustHaves = allRatings.filter((r) => r.tier === 'must-have');
-    const open = allRatings.filter((r) => r.tier === 'open');
-    const maybes = allRatings.filter((r) => r.tier === 'maybe');
-    const offLimits = allRatings.filter((r) => r.tier === 'off-limits');
+    const TIER_ORDER_MENU: MenuTier[] = ['must-have', 'open', 'maybe', 'off-limits'];
+
+    const SHORT_LABELS: Record<MenuTier, string> = {
+      'must-have': 'Want', 'open': 'Open', 'maybe': 'Maybe', 'off-limits': 'No',
+    };
+
+    const TIER_COLORS_DARK: Record<MenuTier, string> = {
+      'must-have': '#007A6B', 'open': '#5BA84D', 'maybe': '#B8A520', 'off-limits': '#D47020',
+    };
+
+    const ratedMap = new Map<string, MenuTier>();
+    for (const profile of menuProfiles) {
+      for (const r of profile.ratings) ratedMap.set(r.item, r.tier);
+    }
+
+    const getTierGroups = (tier: MenuTier, includeUnrated = false) =>
+      MENU_CATEGORIES.map((cat) => {
+        const items = cat.items
+          .filter((item) => includeUnrated
+            ? (ratedMap.get(item) === tier || !ratedMap.has(item))
+            : ratedMap.get(item) === tier)
+          .map((item) => ({ item, isUnrated: !ratedMap.has(item) }));
+        return items.length > 0
+          ? { categoryId: cat.id, categoryName: cat.name, categoryColor: cat.color, items }
+          : null;
+      }).filter(Boolean) as { categoryId: string; categoryName: string; categoryColor: string; items: { item: string; isUnrated: boolean }[] }[];
+
+    const TIER_CONFIG: { key: MenuTier; label: string; gradient: string; includeUnrated?: boolean }[] = [
+      { key: 'must-have',  label: "Must Have's",      gradient: 'linear-gradient(135deg, #80C9C1 0%, #95CFA0 100%)' },
+      { key: 'open',       label: 'Open For',          gradient: 'linear-gradient(135deg, #89CFF0 0%, #80C9C1 100%)' },
+      { key: 'maybe',      label: "Maybe's",           gradient: 'linear-gradient(135deg, #F5D06E 0%, #F4A89A 100%)' },
+      { key: 'off-limits', label: 'Not Available For', gradient: 'linear-gradient(135deg, #F4A89A 0%, #C5A3CF 100%)', includeUnrated: true },
+    ];
+
+    const handleShare = async () => {
+      const data = JSON.stringify({ name: myName, profiles: menuProfiles });
+      const token = btoa(encodeURIComponent(data));
+      const url = `${window.location.origin}/map-share/${token}`;
+      if (navigator.share) {
+        await navigator.share({ title: `${myName || 'My'} Map`, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+      }
+    };
 
     return (
-      <div className="page-enter min-h-dvh pb-8">
+      <div className="page-enter min-h-dvh pb-12">
         <div className="px-5 pt-5 pb-3 flex items-center justify-between">
           <Link href="/" className="text-sm opacity-60 hover:opacity-100 transition-opacity">
             &larr; Home
           </Link>
           <button
-            onClick={() => { setStep('intro'); setMenuProfiles([]); localStorage.removeItem(STORAGE_KEY); }}
+            onClick={() => { setStep('name'); setMenuProfiles([]); localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(NAME_KEY); setMyName(''); }}
             className="text-xs opacity-30 hover:opacity-60 transition-opacity"
           >
             Redo
@@ -270,81 +288,116 @@ export default function MyMenuPage() {
         </div>
 
         <div className="px-5 pt-4 pb-6 text-center">
-          <h1
-            className="text-2xl font-semibold mb-1"
-            style={{ fontFamily: 'Georgia, serif' }}
-          >
-            My Menu
+          <h1 className="text-2xl font-semibold mb-1" style={{ fontFamily: 'Georgia, serif' }}>
+            {myName ? `${myName}'s Map` : 'My Map'}
           </h1>
-          <p className="text-sm opacity-50">
-            {allRatings.length} items rated across {menuProfiles.length} categories
-          </p>
         </div>
 
-        {mustHaves.length > 0 && (
-          <div className="mx-5 watercolor-card watercolor-rose p-4 mb-3">
-            <p className="text-xs font-medium opacity-50 mb-2 uppercase tracking-wide">Must Have</p>
-            <div className="flex flex-wrap gap-2">
-              {mustHaves.map((r) => (
-                <span key={r.item} className="text-sm px-3 py-1.5 rounded-full bg-rose/25 font-medium">{r.item}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {open.length > 0 && (
-          <div className="mx-5 watercolor-card watercolor-blue p-4 mb-3">
-            <p className="text-xs font-medium opacity-50 mb-2 uppercase tracking-wide">Open To</p>
-            <div className="flex flex-wrap gap-2">
-              {open.map((r) => (
-                <span key={r.item} className="text-sm px-3 py-1.5 rounded-full bg-blue/20">{r.item}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {maybes.length > 0 && (
-          <div className="mx-5 watercolor-card watercolor-gold p-4 mb-3">
-            <p className="text-xs font-medium opacity-50 mb-2 uppercase tracking-wide">Maybe</p>
-            <div className="flex flex-wrap gap-2">
-              {maybes.map((r) => (
-                <span key={r.item} className="text-sm px-3 py-1.5 rounded-full bg-gold/20">{r.item}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {offLimits.length > 0 && (
-          <div className="mx-5 watercolor-card bg-white/50 p-4 mb-3">
-            <p className="text-xs font-medium opacity-50 mb-2 uppercase tracking-wide">Off Limits</p>
-            <div className="flex flex-wrap gap-2">
-              {offLimits.map((r) => (
-                <span key={r.item} className="text-sm px-3 py-1.5 rounded-full bg-black/8">{r.item}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Edit by category */}
-        <div className="mx-5 mt-6">
-          <p className="text-xs opacity-30 mb-3 uppercase tracking-wide">Edit by category</p>
-          <div className="grid grid-cols-2 gap-2">
-            {MENU_CATEGORIES.map((cat, i) => {
-              const profile = menuProfiles.find((p) => p.categoryId === cat.id);
-              const count = profile?.ratings.length || 0;
-              return (
+        <div className="px-5 space-y-3">
+          {TIER_CONFIG.map(({ key, label, gradient, includeUnrated }) => {
+            const groups = getTierGroups(key, includeUnrated);
+            const totalItems = groups.reduce((sum, g) => sum + g.items.length, 0);
+            if (totalItems === 0) return null;
+            const isExp = expandedTier === key;
+            return (
+              <div key={key} className="rounded-2xl overflow-hidden shadow-sm">
                 <button
-                  key={cat.id}
-                  onClick={() => startFromCategory(i)}
-                  className="watercolor-card p-3 text-left transition-all active:scale-[0.98]"
-                  style={{ background: cat.color + '10' }}
+                  onClick={() => { setExpandedTier(isExp ? null : key); setPeekItem(null); }}
+                  className="w-full text-left px-5 py-5 transition-all active:scale-[0.99]"
+                  style={{ background: gradient }}
                 >
-                  <p className="text-xs font-medium" style={{ color: cat.color }}>{cat.name}</p>
-                  <p className="text-xs opacity-30 mt-0.5">{count} rated</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-extrabold uppercase tracking-wide" style={{ color: 'rgba(0,0,0,0.65)' }}>
+                        {label}
+                      </h3>
+                      <p className="text-xs mt-1" style={{ color: 'rgba(0,0,0,0.35)' }}>
+                        {totalItems} item{totalItems !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <span className="text-sm" style={{ color: 'rgba(0,0,0,0.25)' }}>{isExp ? '▲' : '▼'}</span>
+                  </div>
                 </button>
-              );
-            })}
-          </div>
+
+                {isExp && (
+                  <div className="border-x border-b border-black/5 rounded-b-2xl" style={{ background: 'rgba(255,255,255,0.97)', animation: 'tooltip-enter 0.2s ease-out' }}>
+                    {/* Tier column headers */}
+                    <div className="flex pl-[116px] pr-4 pt-3 pb-1">
+                      {TIER_ORDER_MENU.map((t) => (
+                        <div key={t} className="flex-1 text-center">
+                          <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: TIER_COLORS_DARK[t] }}>
+                            {SHORT_LABELS[t]}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Items grouped by category */}
+                    <div className="px-4 pb-4 pt-1 space-y-3">
+                      {groups.map((group) => (
+                        <div key={group.categoryId}>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: group.categoryColor }}>
+                            {group.categoryName}
+                          </p>
+                          <div className="space-y-0.5">
+                            {group.items.map(({ item, isUnrated }) => (
+                              <div key={item} style={{ opacity: isUnrated ? 0.3 : 1 }}>
+                                <button
+                                  onClick={() => !isUnrated && setPeekItem(peekItem === item ? null : item)}
+                                  className="w-full flex items-center gap-2 py-1 rounded-lg transition-all active:scale-[0.99]"
+                                  style={{ cursor: isUnrated ? 'default' : 'pointer' }}
+                                >
+                                  <div className="w-[108px] shrink-0 text-right pr-2">
+                                    <span className="text-xs leading-snug font-medium" style={{ color: 'rgba(0,0,0,0.72)' }}>{item}</span>
+                                  </div>
+                                  <div className="flex-1 flex gap-1">
+                                    {TIER_ORDER_MENU.map((t) => (
+                                      <div
+                                        key={t}
+                                        className="flex-1 rounded"
+                                        style={{
+                                          height: 22,
+                                          background: !isUnrated && t === key
+                                            ? `${MENU_TIER_COLORS[t]}CC`
+                                            : 'rgba(0,0,0,0.04)',
+                                        }}
+                                      />
+                                    ))}
+                                  </div>
+                                </button>
+                                {peekItem === item && SUBCATEGORY_DEFINITIONS[item] && (
+                                  <div
+                                    className="ml-[112px] mr-1 mb-1.5 px-3 py-2 rounded-xl text-xs leading-relaxed"
+                                    style={{
+                                      background: `${MENU_TIER_COLORS[key]}20`,
+                                      color: 'rgba(0,0,0,0.55)',
+                                      animation: 'tooltip-enter 0.15s ease-out',
+                                    }}
+                                  >
+                                    {SUBCATEGORY_DEFINITIONS[item]}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="px-5 mt-8">
+          <button
+            onClick={handleShare}
+            className="w-full py-4 rounded-2xl text-white font-semibold text-base transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
+          >
+            Share My Map
+          </button>
         </div>
       </div>
     );

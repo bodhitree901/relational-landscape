@@ -26,7 +26,7 @@ export function snapshotToConnection(snapshot: ProfileSnapshot, id?: string): Co
       categoryId: c.categoryId,
       ratings: c.ratings.map((r) => ({
         subcategory: r.subcategory,
-        tier: r.tier as 'potential' | 'sometimes' | 'rhythm' | 'core',
+        tier: r.tier as 'must-have' | 'open' | 'maybe' | 'off-limits',
       })),
     })),
     timeRhythm: snapshot.timeRhythm,
@@ -49,10 +49,17 @@ function generateToken(): string {
 export async function createInvitation(
   userId: string,
   connectionId: string,
-  connection: Connection
+  connection: Connection,
+  sharerName?: string
 ): Promise<{ token: string } | { error: string }> {
   const token = generateToken();
   const snapshot = connectionToSnapshot(connection);
+  // Use sharer's name so Person B sees who sent this
+  // Store the connection target name separately
+  snapshot.connectionName = connection.name;
+  if (sharerName) {
+    snapshot.name = sharerName;
+  }
 
   const { error } = await supabase.from('invitations').insert({
     token,
@@ -174,6 +181,38 @@ export async function getResponseForConnection(userId: string, connectionId: str
 
   if (error || !data) return null;
   return data as unknown as InvitationWithResponses;
+}
+
+// Subscribe to real-time responses for a connection
+export function subscribeToResponses(
+  userId: string,
+  connectionId: string,
+  onResponse: () => void
+): { unsubscribe: () => void } {
+  // Listen for changes to invitations table (status going to 'completed')
+  const channel = supabase
+    .channel(`responses:${connectionId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'invitations',
+        filter: `user_id=eq.${userId}`,
+      },
+      (payload) => {
+        if (payload.new && (payload.new as Record<string, unknown>).connection_id === connectionId && (payload.new as Record<string, unknown>).status === 'completed') {
+          onResponse();
+        }
+      }
+    )
+    .subscribe();
+
+  return {
+    unsubscribe: () => {
+      supabase.removeChannel(channel);
+    },
+  };
 }
 
 // Generate the short share URL

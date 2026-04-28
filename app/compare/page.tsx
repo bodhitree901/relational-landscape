@@ -3,14 +3,16 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Connection, CategoryRatings, SubcategoryRating, Tier, Category, SharedComparison } from '../lib/types';
-import { decodeConnection, generateReturnUrl } from '../lib/sharing';
+import { decodeConnection } from '../lib/sharing';
 import { getCategoriesWithCustom, addCustomSubcategory, getConnections, saveSharedComparison } from '../lib/storage';
 import { analyzeOverlap, OverlapResult } from '../lib/analysis';
 import ChipPool, { ChipRating } from '../components/ChipPool';
 import { CONNECTION_TIERS } from '../lib/tier-configs';
 import InstructionOverlay from '../components/InstructionOverlay';
 import ColorPicker, { ConnectionCircle } from '../components/ColorPicker';
-import WordCloud from '../components/WordCloud';
+import Highlights from '../components/Highlights';
+import CategoryCards from '../components/CategoryCards';
+import SharedCategoryCards from '../components/SharedCategoryCards';
 import Link from 'next/link';
 
 function CompareContent() {
@@ -26,7 +28,6 @@ function CompareContent() {
   const [myCategoryRatings, setMyCategoryRatings] = useState<CategoryRatings[]>([]);
   const [myConnection, setMyConnection] = useState<Connection | null>(null);
   const [overlap, setOverlap] = useState<OverlapResult | null>(null);
-  const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
   const [matchedConnectionId, setMatchedConnectionId] = useState<string | null>(null);
 
@@ -122,27 +123,6 @@ function CompareContent() {
     }
   };
 
-  // Person B's "Share back" — copy return URL
-  const handleShareBack = async () => {
-    if (!myConnection || !theirProfile) return;
-    // Generate return URL: theirProfile (person A's original) + myConnection (person B's side)
-    const url = generateReturnUrl(theirProfile, myConnection);
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch {
-      const textarea = document.createElement('textarea');
-      textarea.value = url;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    }
-  };
-
   // Person A saves the comparison to their dashboard
   const handleSaveComparison = () => {
     if (!myConnection || !replyProfile) return;
@@ -157,64 +137,31 @@ function CompareContent() {
     setSaved(true);
   };
 
-  // Intro — person B sees person A's profile
+  // Intro — clean invite page
   if (step === 'intro' && !replyProfile) {
-    const theirRatings = theirProfile.categories.flatMap((c) => c.ratings);
-    const theirCore = theirRatings.filter((r) => r.tier === 'core').map((r) => r.subcategory);
-    const theirRhythm = theirRatings.filter((r) => r.tier === 'rhythm').map((r) => r.subcategory);
     const theirColor = theirProfile.color || theirProfile.emoji || '#C5A3CF';
+    const sharerName = theirProfile.name;
 
     return (
-      <div className="page-enter min-h-dvh pb-8">
-        <div className="px-5 pt-8 pb-4 flex flex-col items-center text-center">
-          <ConnectionCircle color={theirColor} size={56} />
-          <h1 className="text-2xl font-semibold mt-3 mb-2">{theirProfile.name}&rsquo;s View</h1>
-          <p className="text-sm opacity-50 max-w-xs">
-            {theirProfile.name} mapped how they see your connection. Now it&rsquo;s your turn.
+      <div className="page-enter flex flex-col min-h-dvh">
+        <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
+          <ConnectionCircle color={theirColor} size={72} />
+          <h1 className="text-2xl font-semibold mt-5 mb-3">
+            {sharerName} wants to map this connection with you
+          </h1>
+          <p className="text-sm opacity-50 max-w-xs leading-relaxed mb-2">
+            You&rsquo;ll each independently map what you want from this connection. Then you&rsquo;ll see where you align.
           </p>
-        </div>
-
-        <div className="mx-5 watercolor-card bg-white/50 p-5 mb-6">
-          <h2 className="text-sm font-medium opacity-50 mb-2 uppercase tracking-wide text-center">
-            How {theirProfile.name} sees this connection
-          </h2>
-          <WordCloud connection={theirProfile} />
-        </div>
-
-        <div className="mx-5 mb-6 space-y-2">
-          {theirCore.length > 0 && (
-            <div className="watercolor-card watercolor-rose p-3">
-              <p className="text-xs opacity-40 mb-1">Core to the connection</p>
-              <div className="flex flex-wrap gap-1.5">
-                {theirCore.map((s) => (
-                  <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-rose/20">{s}</span>
-                ))}
-              </div>
-            </div>
-          )}
-          {theirRhythm.length > 0 && (
-            <div className="watercolor-card watercolor-blue p-3">
-              <p className="text-xs opacity-40 mb-1">Part of the rhythm</p>
-              <div className="flex flex-wrap gap-1.5">
-                {theirRhythm.map((s) => (
-                  <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-blue/20">{s}</span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="px-5">
+          <p className="text-xs opacity-30 max-w-xs mb-10">
+            No account needed &middot; Takes about 5 minutes
+          </p>
           <button
             onClick={handleStartMapping}
-            className="w-full py-3 rounded-2xl text-white font-medium text-base transition-all hover:opacity-90 active:scale-[0.98]"
-            style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
+            className="w-full max-w-xs py-3.5 rounded-2xl text-white font-medium text-base transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{ background: theirColor }}
           >
-            Map your side of this connection
+            Fill out your side
           </button>
-          <p className="text-center text-xs opacity-30 mt-3">
-            Fill out how you see it, then see where you overlap
-          </p>
         </div>
       </div>
     );
@@ -295,193 +242,154 @@ function CompareContent() {
     );
   }
 
-  // Results
-  if (step === 'results' && overlap && myConnection) {
-    const myClr = myConnection.color || myConnection.emoji || '#89CFF0';
-    // When it's a return URL, "theirProfile" is actually person A's original, and "replyProfile" is person B
-    // When person B just finished, "theirProfile" is person A's, "myConnection" is person B's
+  // Results — full summary with My View / Shared View toggle
+  if (step === 'results' && myConnection) {
     const otherProfile = replyProfile || theirProfile;
-    const otherColor = otherProfile.color || otherProfile.emoji || '#C5A3CF';
     const isReturnView = !!replyProfile;
 
-    // In return view: Person A sees their own selections (labeled under connection name)
-    // vs Person B's reply. Use "You" for Person A's side, Person B's name for theirs.
-    const myDisplayName = isReturnView ? 'You' : myConnection.name;
-    const otherDisplayName = isReturnView ? replyProfile.name : otherProfile.name;
-
     return (
-      <div className="page-enter min-h-dvh pb-8">
-        <div className="px-5 pt-5 pb-3">
-          <Link href="/" className="text-sm opacity-60 hover:opacity-100 transition-opacity">
-            &larr; Home
-          </Link>
-        </div>
-
-        <div className="flex flex-col items-center px-5 pt-4 pb-6">
-          <div className="flex items-center gap-4 mb-3">
-            <ConnectionCircle color={myClr} size={44} />
-            <span className="text-lg opacity-20">&</span>
-            <ConnectionCircle color={otherColor} size={44} />
-          </div>
-          <h1 className="text-2xl font-semibold">
-            {isReturnView ? `${myConnection.name} & ${replyProfile.name}` : `${myConnection.name} & ${otherProfile.name}`}
-          </h1>
-          <p className="text-sm opacity-50 mt-1">Where you overlap</p>
-        </div>
-
-        {overlap.sharedCore.length > 0 && (
-          <div className="mx-5 watercolor-card watercolor-rose p-4 mb-3">
-            <p className="text-xs font-medium opacity-50 mb-2 uppercase tracking-wide">Both see as core</p>
-            <div className="flex flex-wrap gap-2">
-              {overlap.sharedCore.map((s) => (
-                <span key={s} className="text-sm px-3 py-1.5 rounded-full bg-rose/25 font-medium">{s}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {overlap.sharedRhythm.length > 0 && (
-          <div className="mx-5 watercolor-card watercolor-blue p-4 mb-3">
-            <p className="text-xs font-medium opacity-50 mb-2 uppercase tracking-wide">Shared rhythm</p>
-            <div className="flex flex-wrap gap-2">
-              {overlap.sharedRhythm.map((s) => (
-                <span key={s} className="text-sm px-3 py-1.5 rounded-full bg-blue/20">{s}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {overlap.sharedSometimes.length > 0 && (
-          <div className="mx-5 watercolor-card watercolor-gold p-4 mb-3">
-            <p className="text-xs font-medium opacity-50 mb-2 uppercase tracking-wide">Both notice sometimes</p>
-            <div className="flex flex-wrap gap-2">
-              {overlap.sharedSometimes.map((s) => (
-                <span key={s} className="text-sm px-3 py-1.5 rounded-full bg-gold/20">{s}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {overlap.sharedPotential.length > 0 && (
-          <div className="mx-5 watercolor-card watercolor-peach p-4 mb-3">
-            <p className="text-xs font-medium opacity-50 mb-2 uppercase tracking-wide">Both see potential</p>
-            <div className="flex flex-wrap gap-2">
-              {overlap.sharedPotential.map((s) => (
-                <span key={s} className="text-sm px-3 py-1.5 rounded-full bg-peach/20">{s}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="mx-5 flex gap-3 mb-6 mt-4">
-          {overlap.uniqueToMe.length > 0 && (
-            <div className="flex-1 watercolor-card bg-white/50 p-4">
-              <p className="text-xs font-medium opacity-40 mb-2">Only {myDisplayName.toLowerCase() === 'you' ? 'you' : myDisplayName} named</p>
-              <div className="flex flex-wrap gap-1.5">
-                {overlap.uniqueToMe.map((u) => (
-                  <span key={u.sub} className="text-xs px-2 py-1 rounded-full bg-black/5">{u.sub}</span>
-                ))}
-              </div>
-            </div>
-          )}
-          {overlap.uniqueToThem.length > 0 && (
-            <div className="flex-1 watercolor-card bg-white/50 p-4">
-              <p className="text-xs font-medium opacity-40 mb-2">Only {otherDisplayName} named</p>
-              <div className="flex flex-wrap gap-1.5">
-                {overlap.uniqueToThem.map((u) => (
-                  <span key={u.sub} className="text-xs px-2 py-1 rounded-full bg-black/5">{u.sub}</span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mx-5 watercolor-card watercolor-lavender p-5 mb-6">
-          <h2 className="text-sm font-medium opacity-50 mb-3 uppercase tracking-wide">Reading Your Overlap</h2>
-          <div className="space-y-3">
-            {overlap.overlapSummary.split('\n\n').map((paragraph, i) => (
-              <p key={i} className="text-sm leading-relaxed opacity-75">{paragraph}</p>
-            ))}
-          </div>
-        </div>
-
-        <div className="mx-5 space-y-3 mb-6">
-          <div className="watercolor-card bg-white/50 p-4">
-            <div className="flex items-center gap-2 mb-2 justify-center">
-              <ConnectionCircle color={myClr} size={16} />
-              <p className="text-xs font-medium opacity-40">{isReturnView ? 'Your view' : `${myConnection.name}\u2019s view`}</p>
-            </div>
-            <WordCloud connection={myConnection} />
-          </div>
-          <div className="watercolor-card bg-white/50 p-4">
-            <div className="flex items-center gap-2 mb-2 justify-center">
-              <ConnectionCircle color={otherColor} size={16} />
-              <p className="text-xs font-medium opacity-40">{otherDisplayName}&rsquo;s view</p>
-            </div>
-            <WordCloud connection={otherProfile} />
-          </div>
-        </div>
-
-        {/* Share back button (person B just finished) or Save button (person A viewing return) */}
-        <div className="mx-5 space-y-3 mb-6">
-          {isReturnView ? (
-            // Person A is viewing the return link — offer to save
-            <>
-              <button
-                onClick={handleSaveComparison}
-                disabled={saved}
-                className="w-full py-3 rounded-2xl text-white font-medium text-base transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
-                style={{
-                  background: saved
-                    ? 'var(--sage)'
-                    : 'linear-gradient(135deg, var(--peach), var(--lavender))',
-                }}
-              >
-                {saved ? 'Saved to your dashboard' : 'Save this comparison'}
-              </button>
-              {saved && (
-                <p className="text-center text-xs opacity-40">
-                  You can find it on {myConnection.name}&rsquo;s profile page
-                </p>
-              )}
-            </>
-          ) : (
-            // Person B just finished — offer to share back
-            <>
-              <div className="watercolor-card bg-white/50 p-5 text-center">
-                <h3
-                  className="text-base font-semibold mb-2"
-                  style={{ fontFamily: 'Georgia, serif' }}
-                >
-                  Share your side back
-                </h3>
-                <p className="text-xs opacity-50 leading-relaxed mb-4">
-                  Send this link to {theirProfile.name} so they can see where you overlap.
-                  Everything stays on-device — no accounts, no servers.
-                </p>
-                <button
-                  onClick={handleShareBack}
-                  className="px-8 py-3 rounded-2xl text-white font-medium text-base transition-all hover:opacity-90 active:scale-[0.98]"
-                  style={{
-                    background: copied
-                      ? 'var(--sage)'
-                      : 'linear-gradient(135deg, var(--peach), var(--lavender))',
-                  }}
-                >
-                  {copied ? 'Link copied!' : 'Copy share-back link'}
-                </button>
-              </div>
-              <p className="text-center text-xs opacity-30">
-                When {theirProfile.name} opens this link, they&rsquo;ll see your overlap and can save it
-              </p>
-            </>
-          )}
-        </div>
-      </div>
+      <CompareResults
+        myConnection={myConnection}
+        otherProfile={otherProfile}
+        overlap={overlap}
+        isReturnView={isReturnView}
+        onSave={isReturnView ? handleSaveComparison : undefined}
+        saved={saved}
+      />
     );
   }
 
   return null;
+}
+
+function CompareResults({
+  myConnection,
+  otherProfile,
+  overlap,
+  isReturnView,
+  onSave,
+  saved,
+}: {
+  myConnection: Connection;
+  otherProfile: Connection;
+  overlap: OverlapResult | null;
+  isReturnView: boolean;
+  onSave?: () => void;
+  saved: boolean;
+}) {
+  const [viewMode, setViewMode] = useState<'shared' | 'my'>('shared');
+  const myClr = myConnection.color || myConnection.emoji || '#89CFF0';
+  const otherColor = otherProfile.color || otherProfile.emoji || '#C5A3CF';
+  const otherName = otherProfile.name;
+
+  return (
+    <div className="page-enter min-h-dvh pb-8">
+      {/* Header */}
+      <div className="px-5 pt-5 pb-3">
+        <Link href="/" className="text-sm opacity-60 hover:opacity-100 transition-opacity">
+          &larr; Home
+        </Link>
+      </div>
+
+      {/* Identity */}
+      <div className="flex flex-col items-center px-5 pt-4 pb-4">
+        <ConnectionCircle color={myClr} size={56} />
+        <h1 className="text-2xl font-semibold mt-3">{otherName}</h1>
+      </div>
+
+      {/* Save CTA for return view / Sign up CTA for person B */}
+      {isReturnView && onSave ? (
+        <div className="mx-5 mb-4">
+          <button
+            onClick={onSave}
+            disabled={saved}
+            className="w-full py-3 rounded-2xl text-white font-medium text-sm transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
+            style={{ background: saved ? '#009483' : 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
+          >
+            {saved ? 'Saved to your dashboard' : 'Save this comparison'}
+          </button>
+        </div>
+      ) : (
+        <div className="mx-5 mb-4 rounded-2xl p-4 text-center" style={{ background: 'linear-gradient(135deg, rgba(244,168,154,0.1), rgba(197,163,207,0.1))' }}>
+          <p className="text-sm font-medium opacity-70">Want to save this connection?</p>
+          <p className="text-xs opacity-40 mt-0.5 mb-3">Sign up to keep your map, build your own landscape, and share with others</p>
+          <Link
+            href="/"
+            className="inline-block px-5 py-2 rounded-full text-white text-sm font-medium transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
+          >
+            Get started
+          </Link>
+        </div>
+      )}
+
+      {/* View Toggle */}
+      <div className="px-5 mb-6">
+        <div className="flex rounded-xl overflow-hidden border border-black/10">
+          <button
+            onClick={() => setViewMode('shared')}
+            className="flex-1 py-2.5 text-sm font-medium transition-all"
+            style={{
+              background: viewMode === 'shared' ? myClr : 'transparent',
+              color: viewMode === 'shared' ? 'white' : 'rgba(0,0,0,0.4)',
+            }}
+          >
+            Shared View
+          </button>
+          <button
+            onClick={() => setViewMode('my')}
+            className="flex-1 py-2.5 text-sm font-medium transition-all"
+            style={{
+              background: viewMode === 'my' ? myClr : 'transparent',
+              color: viewMode === 'my' ? 'white' : 'rgba(0,0,0,0.4)',
+            }}
+          >
+            My View
+          </button>
+        </div>
+      </div>
+
+      {/* ===== SHARED VIEW ===== */}
+      {viewMode === 'shared' && (
+        <>
+          <div className="px-5 mb-8">
+            <Highlights
+              connection={myConnection}
+              theirConnection={otherProfile}
+              theirName={otherName}
+            />
+          </div>
+
+          <div className="px-5 mb-8">
+            <h2 className="text-2xl font-extrabold uppercase tracking-wide mb-3 px-1" style={{ color: 'rgba(0,0,0,0.7)' }}>
+              Connection Landscape
+            </h2>
+            <SharedCategoryCards
+              myConnection={myConnection}
+              theirConnection={otherProfile}
+              myName={myConnection.name}
+              theirName={otherName}
+            />
+          </div>
+        </>
+      )}
+
+      {/* ===== MY VIEW ===== */}
+      {viewMode === 'my' && (
+        <>
+          <div className="px-5 mb-8">
+            <Highlights connection={myConnection} />
+          </div>
+          <div className="px-5 mb-8">
+            <h2 className="text-2xl font-extrabold uppercase tracking-wide mb-3 px-1" style={{ color: 'rgba(0,0,0,0.7)' }}>
+              Connection Landscape
+            </h2>
+            <CategoryCards connection={myConnection} />
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 export default function ComparePage() {

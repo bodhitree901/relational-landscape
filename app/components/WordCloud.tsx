@@ -4,10 +4,10 @@ import { Connection, Tier } from '../lib/types';
 import { DEFAULT_CATEGORIES } from '../lib/categories';
 
 const TIER_SIZE_CLASS: Record<Tier, string> = {
-  core: 'word-core',
-  rhythm: 'word-rhythm',
-  sometimes: 'word-sometimes',
-  potential: 'word-potential',
+  'must-have': 'word-core',
+  'open': 'word-rhythm',
+  'maybe': 'word-sometimes',
+  'off-limits': 'word-potential',
 };
 
 function getCategoryColor(subcategory: string): string {
@@ -31,7 +31,7 @@ export default function WordCloud({ connection }: { connection: Connection }) {
   }
 
   // Sort: core first, then rhythm, etc.
-  const tierPriority: Record<Tier, number> = { core: 0, rhythm: 1, sometimes: 2, potential: 3 };
+  const tierPriority: Record<Tier, number> = { 'must-have': 0, 'open': 1, 'maybe': 2, 'off-limits': 3 };
   const sorted = [...allRatings].sort((a, b) => tierPriority[a.tier] - tierPriority[b.tier]);
 
   return (

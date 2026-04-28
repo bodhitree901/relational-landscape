@@ -1,23 +1,8 @@
 import { Connection, Tier } from './types';
-import { DEFAULT_CATEGORIES } from './categories';
 
 interface AnalysisResult {
   summary: string;
   suggestions: string[];
-}
-
-const CATEGORY_NAMES: Record<string, string> = {
-  'physical-touch': 'Physical Touch & Intimacy',
-  'life-structure': 'Life Structure & Agreements',
-  'emotional-connection': 'Emotional Connection',
-  'social': 'Social',
-  'time-rhythm': 'Time & Rhythm',
-  'frames': 'Frames',
-  'qualities': 'Dynamics',
-};
-
-function getCategoryName(id: string): string {
-  return CATEGORY_NAMES[id] || id;
 }
 
 // Seeded random from connection name so it's stable per person but varies between people
@@ -59,16 +44,16 @@ function listNaturally(items: string[]): string {
 
 export function analyzeConnection(connection: Connection): AnalysisResult {
   const rng = seededRandom(connection.id + connection.name);
-  const coreItems = getRatingsByTier(connection, 'core');
-  const rhythmItems = getRatingsByTier(connection, 'rhythm');
-  const sometimesItems = getRatingsByTier(connection, 'sometimes');
-  const potentialItems = getRatingsByTier(connection, 'potential');
-  const allItems = [...coreItems, ...rhythmItems, ...sometimesItems, ...potentialItems];
+  const activelyWant = getRatingsByTier(connection, 'must-have');
+  const openTo = getRatingsByTier(connection, 'open');
+  const notSure = getRatingsByTier(connection, 'maybe');
+  const notAvailable = getRatingsByTier(connection, 'off-limits');
+  const allItems = [...activelyWant, ...openTo, ...notSure, ...notAvailable];
   const name = connection.name;
 
   if (allItems.length === 0) {
     return {
-      summary: `You haven't mapped any aspects of your connection with ${name} yet. Start by exploring which subcategories feel relevant.`,
+      summary: `You haven't mapped any aspects of your connection with ${name} yet. Start by exploring which items feel relevant.`,
       suggestions: ['Take some time to walk through each category and see what resonates.'],
     };
   }
@@ -76,202 +61,125 @@ export function analyzeConnection(connection: Connection): AnalysisResult {
   const paragraphs: string[] = [];
 
   // Opening — what defines this connection
-  if (coreItems.length > 0) {
+  if (activelyWant.length > 0) {
     const openings = [
-      `At its heart, your connection with ${name} is anchored in ${listNaturally(coreItems)}.`,
-      `The foundation of what you share with ${name} lives in ${listNaturally(coreItems)}.`,
-      `When you strip everything else away, what remains between you and ${name} is ${listNaturally(coreItems)}.`,
-      `The bedrock of your connection with ${name} — the part that would leave the biggest absence — is ${listNaturally(coreItems)}.`,
+      `What you actively want with ${name}: ${listNaturally(activelyWant)}.`,
+      `The things you're clear about wanting with ${name} are ${listNaturally(activelyWant)}.`,
+      `When it comes to ${name}, you know what matters most — ${listNaturally(activelyWant)}.`,
+      `The heart of what you want with ${name} lives in ${listNaturally(activelyWant)}.`,
     ];
-    const followups = coreItems.length === 1
+    const followups = activelyWant.length === 1
       ? [
-          'This single thread carries a lot of weight — everything else orbits around it.',
-          'One clear pillar. The rest of your connection arranges itself around this center.',
-          'A singular anchor. There\'s clarity in that — you know what this connection is about.',
+          'One clear desire. There\'s power in that kind of clarity.',
+          'A single focus — everything else arranges itself around this.',
+          'You know exactly what you\'re looking for here.',
         ]
       : [
-          'These are the threads that would leave the biggest gap if they disappeared.',
-          'Together, these form the gravitational center of your relationship.',
-          'Pull any of these out and the whole shape of the connection would shift.',
+          'These are the things that matter most — the non-negotiables.',
+          'Together, these paint a clear picture of what you\'re building toward.',
+          'This is your foundation — what you\'d want to prioritize and protect.',
         ];
     paragraphs.push(`${pick(rng, openings)} ${pick(rng, followups)}`);
-  } else if (rhythmItems.length > 0) {
+  } else if (openTo.length > 0) {
     const openings = [
-      `Your connection with ${name} doesn't have one dramatic center — instead, it's woven from steady rhythms: ${listNaturally(rhythmItems)}.`,
-      `What you share with ${name} is more fabric than pillar — it's the reliable weave of ${listNaturally(rhythmItems)}.`,
-      `There's no single defining moment with ${name} — the connection lives in the regularity of ${listNaturally(rhythmItems)}.`,
+      `With ${name}, you're in a place of openness — ${listNaturally(openTo)} are things you'd welcome.`,
+      `Your connection with ${name} is shaped by possibility — you're open to ${listNaturally(openTo)}.`,
+      `Nothing feels like a hard yes yet, but ${listNaturally(openTo)} ${openTo.length === 1 ? 'has' : 'have'} your attention.`,
     ];
     paragraphs.push(`${pick(rng, openings)} ${pick(rng, [
-      'This is a connection that lives in presence and consistency.',
-      'The strength here is in showing up, again and again.',
-      'Rhythm-based connections like this often feel quieter but run deep.',
+      'Openness is its own kind of intimacy — you\'re leaving room for things to grow.',
+      'There\'s generosity in being open without rushing to certainty.',
+      'This is a connection that\'s still discovering itself.',
     ])}`);
   } else {
     paragraphs.push(pick(rng, [
-      `Your connection with ${name} is still taking shape. Nothing has cemented itself as core yet, but threads are forming — and that's its own kind of beauty.`,
-      `What you share with ${name} is still in motion — more potential and exploration than fixed ground. That's not a weakness; it's openness.`,
+      `Your connection with ${name} is still being defined. You're sorting through what feels right — and that's a thoughtful place to be.`,
       `The landscape between you and ${name} is spacious right now. There's room for things to emerge, shift, and surprise you both.`,
     ]));
   }
 
-  // Rhythm layer
-  if (rhythmItems.length > 0 && coreItems.length > 0) {
+  // Open to layer
+  if (openTo.length > 0 && activelyWant.length > 0) {
     paragraphs.push(pick(rng, [
-      `Around that center, ${listNaturally(rhythmItems)} ${rhythmItems.length === 1 ? 'hums' : 'hum'} as a steady rhythm — not the headline, but the heartbeat.`,
-      `Supporting the core, ${listNaturally(rhythmItems)} ${rhythmItems.length === 1 ? 'shows' : 'show'} up reliably. ${pick(rng, ['The scaffolding that holds the rest.', 'The texture you\'d miss if it weren\'t there.', 'Not always noticed, but always felt.'])}`,
-      `${listNaturally(rhythmItems)} ${rhythmItems.length === 1 ? 'runs' : 'run'} through your connection like a steady current — dependable, expected, grounding.`,
+      `Beyond the essentials, you're open to ${listNaturally(openTo)} — these are the things you'd welcome if they emerged naturally.`,
+      `${listNaturally(openTo)} ${openTo.length === 1 ? 'sits' : 'sit'} in a comfortable space — not a priority, but genuinely welcome. ${pick(rng, ['The nice-to-haves that enrich the picture.', 'Doors that are open, not forced.', 'Room to grow into.'])}`,
     ]));
   }
 
-  // Sometimes items add color
-  if (sometimesItems.length > 0) {
+  // Not sure yet
+  if (notSure.length > 0) {
     paragraphs.push(pick(rng, [
-      `There's texture here too: ${listNaturally(sometimesItems)} ${sometimesItems.length === 1 ? 'surfaces' : 'surface'} from time to time, adding color without being the main thread.`,
-      `${listNaturally(sometimesItems)} ${sometimesItems.length === 1 ? 'appears' : 'appear'} in flashes — not constant, but each time ${sometimesItems.length === 1 ? 'it shows' : 'they show'} up, ${sometimesItems.length === 1 ? 'it adds' : 'they add'} something.`,
-      `And then there are the occasional notes: ${listNaturally(sometimesItems)}. ${pick(rng, ['Not the melody, but part of the harmony.', 'They keep things from becoming one-dimensional.', 'These are the surprises in an otherwise familiar song.'])}`,
+      `You're still sorting out ${listNaturally(notSure)}. ${pick(rng, ['That uncertainty is honest — not everything needs a label right now.', 'Give yourself time. Clarity comes from experience, not pressure.', 'It\'s okay not to know. The connection will teach you.'])}`,
+      `${listNaturally(notSure)} — you're not sure yet, and that's perfectly fine. ${pick(rng, ['Some things need to be lived before they can be decided.', 'Ambiguity can be generative.', 'The "maybe" space is where real discovery happens.'])}`,
     ]));
   }
 
-  // Potential
-  if (potentialItems.length > 0) {
+  // Not available for
+  if (notAvailable.length > 0) {
     paragraphs.push(pick(rng, [
-      `On the horizon: ${listNaturally(potentialItems)} ${potentialItems.length === 1 ? 'sits' : 'sit'} in the space of possibility. Not here yet, but the door isn't closed.`,
-      `You've left room for ${listNaturally(potentialItems)} to emerge. ${pick(rng, ['That openness is itself a statement about the connection.', 'Some things need time to find their way in.', 'Not every seed needs to sprout now.'])}`,
-      `${listNaturally(potentialItems)} — ${potentialItems.length === 1 ? 'a possibility' : 'possibilities'} you haven't ruled out. ${pick(rng, ['The connection has space to grow into.', 'What matters is that you can see it.', 'Potential is its own kind of intimacy.'])}`,
+      `You've been clear about what's not on the table: ${listNaturally(notAvailable)}. ${pick(rng, ['Knowing your boundaries is a form of self-respect.', 'Clarity about limits protects both of you.', 'These boundaries create safety for everything else to flourish.'])}`,
+      `${listNaturally(notAvailable)} — not available for, and that's a strong, healthy boundary. ${pick(rng, ['Not everything needs to be on offer.', 'A clear "no" here makes the "yes" more meaningful.'])}`,
     ]));
   }
 
   // Category-level insights
-  const physicalItems = getCategoryItems(connection, 'physical-touch');
-  const emotionalItems = getCategoryItems(connection, 'emotional-connection');
-  const socialItems = getCategoryItems(connection, 'social');
-  const structureItems = getCategoryItems(connection, 'life-structure');
-  const frameItems = getCategoryItems(connection, 'frames');
+  const physicalItems = getCategoryItems(connection, 'physical-intimacy');
+  const emotionalItems = getCategoryItems(connection, 'emotional-intimacy');
+  const commitmentItems = getCategoryItems(connection, 'commitment');
+  const communicationItems = getCategoryItems(connection, 'communication');
 
-  const hasPhysicalCore = physicalItems.some((i) => i.tier === 'core' || i.tier === 'rhythm');
-  const hasEmotionalCore = emotionalItems.some((i) => i.tier === 'core' || i.tier === 'rhythm');
-  const hasSocialCore = socialItems.some((i) => i.tier === 'core' || i.tier === 'rhythm');
-  const hasStructureCore = structureItems.some((i) => i.tier === 'core' || i.tier === 'rhythm');
+  const hasPhysicalActive = physicalItems.some((i) => i.tier === 'must-have' || i.tier === 'open');
+  const hasEmotionalActive = emotionalItems.some((i) => i.tier === 'must-have' || i.tier === 'open');
+  const hasCommitmentActive = commitmentItems.some((i) => i.tier === 'must-have' || i.tier === 'open');
+  const hasCommunicationActive = communicationItems.some((i) => i.tier === 'must-have' || i.tier === 'open');
 
   const activeAreas = [
-    hasPhysicalCore && 'physical',
-    hasEmotionalCore && 'emotional',
-    hasSocialCore && 'social',
-    hasStructureCore && 'structural',
+    hasPhysicalActive && 'physical',
+    hasEmotionalActive && 'emotional',
+    hasCommitmentActive && 'commitment',
+    hasCommunicationActive && 'communication',
   ].filter(Boolean);
 
   if (activeAreas.length >= 3) {
     paragraphs.push(pick(rng, [
-      `This is a multi-dimensional connection — it spans ${listNaturally(activeAreas as string[])} territory. That kind of breadth is rare and speaks to real range.`,
-      `You and ${name} touch ${listNaturally(activeAreas as string[])} dimensions. ${pick(rng, ['Few connections have this kind of spectrum.', 'There\'s a lot of surface area here for the connection to breathe.', 'It means you can show up in many different ways with this person.'])}`,
+      `This is a multi-dimensional connection — it spans ${listNaturally(activeAreas as string[])} territory. That kind of breadth speaks to real depth.`,
+      `You and ${name} touch ${listNaturally(activeAreas as string[])} dimensions. ${pick(rng, ['Few connections have this kind of spectrum.', 'There\'s a lot of surface area here for the connection to breathe.'])}`,
     ]));
   } else if (activeAreas.length === 1) {
     paragraphs.push(pick(rng, [
-      `This connection has a clear center of gravity in the ${activeAreas[0]} realm. ${pick(rng, ['That\'s not a limitation — it\'s a clarity.', 'You know exactly what this relationship is.', 'There\'s power in a connection that knows itself.'])}`,
-      `The weight of what you share with ${name} falls squarely in the ${activeAreas[0]} space. ${pick(rng, ['Clean, clear, defined.', 'It doesn\'t try to be everything — and that\'s its strength.'])}`,
-    ]));
-  }
-
-  // Frame insights
-  const coreFrames = frameItems.filter((i) => i.tier === 'core').map((i) => i.sub);
-  const romanticPresent = frameItems.some((i) => i.sub === 'Romantic Love');
-  const eroticPresent = frameItems.some((i) => i.sub === 'Erotic');
-
-  if (coreFrames.length > 1) {
-    paragraphs.push(pick(rng, [
-      `You hold ${listNaturally(coreFrames)} as core frames — this connection resists a single label. ${pick(rng, ['That\'s a feature, not a bug.', 'The world may want one word for it, but it deserves more.'])}`,
-      `Multiple frames at the core — ${listNaturally(coreFrames)}. ${pick(rng, ['This is a connection that defies easy categories.', 'You\'ve built something that doesn\'t fit in a single box, and that\'s rare.'])}`,
-    ]));
-  }
-
-  if (hasPhysicalCore && !romanticPresent && !eroticPresent) {
-    paragraphs.push(pick(rng, [
-      `There's physical intimacy here without a romantic or erotic frame — and that's a perfectly valid expression of closeness. The body can connect without following a cultural script.`,
-      `Physical closeness without romance or eros. Culturally, that combination gets questioned, but it exists beautifully in its own right. Bodies can share warmth without needing to name it as something else.`,
-    ]));
-  }
-
-  if (eroticPresent && !romanticPresent) {
-    paragraphs.push(pick(rng, [
-      `There's erotic energy here without romantic love at center stage. ${pick(rng, ['It doesn\'t need to "become" romantic to be valid.', 'Eros has its own intelligence — it doesn\'t always point toward romance.'])}`,
-      `Eros without romance — a connection where desire exists on its own terms. ${pick(rng, ['That autonomy is something to honor.', 'Not everything that burns needs to be named as love.'])}`,
-    ]));
-  }
-
-  // Time insights from the time-rhythm category
-  const timeItems = getCategoryItems(connection, 'time-rhythm');
-  const timeCore = timeItems.filter(i => i.tier === 'core' || i.tier === 'rhythm').map(i => i.sub);
-
-  if (timeCore.some(t => t === 'Live together')) {
-    paragraphs.push(pick(rng, [
-      `Living together means this connection is part of your daily fabric — the mundane and the meaningful intertwine constantly.`,
-      `Sharing a home weaves this connection into everything — morning coffee, evening silence, the small frictions and repairs that build something sturdy.`,
-    ]));
-  } else if (timeCore.some(t => ['Daily texting', 'A few times a week', 'Recurring scheduled calls'].includes(t))) {
-    paragraphs.push(pick(rng, [
-      `You stay in regular contact, which keeps the connection warm and present even between in-person moments.`,
-      `The communication rhythm here is steady — this isn't a connection that goes dormant between meetings.`,
-    ]));
-  } else if (timeCore.some(t => ['Organic / Intermittent'].includes(t))) {
-    paragraphs.push(pick(rng, [
-      `The communication here is more sporadic — this might be a connection that thrives on quality over quantity, coming alive when you're together.`,
-      `You don't talk constantly, and that's fine. Some connections are like underground rivers — invisible much of the time, but always flowing.`,
+      `This connection has a clear center of gravity in the ${activeAreas[0]} space. ${pick(rng, ['That\'s not a limitation — it\'s a clarity.', 'There\'s power in a connection that knows itself.'])}`,
+      `The weight of what you want with ${name} falls squarely in the ${activeAreas[0]} space. ${pick(rng, ['Clean, clear, defined.', 'It doesn\'t try to be everything — and that\'s its strength.'])}`,
     ]));
   }
 
   // Build suggestions
   const suggestions: string[] = [];
 
-  if (hasEmotionalCore && !hasSocialCore) {
+  if (hasEmotionalActive && !hasPhysicalActive) {
     suggestions.push(pick(rng, [
-      `You have deep emotional ground. Try adding a lighter dimension — a shared hobby, a silly tradition, an adventure — so the connection can breathe.`,
-      `Strong emotional bonds benefit from play. Consider introducing shared activities that have nothing to do with processing or feelings — just fun.`,
+      `Deep emotional ground here. If physical connection is something you're curious about, even small gestures — a longer hug, sitting closer — can open that door gently.`,
+      `Strong emotional bonds benefit from embodied expression. Even non-romantic touch (a hand on the shoulder, a high five) can deepen what's already there.`,
     ]));
   }
 
-  if (hasSocialCore && !hasEmotionalCore) {
-    suggestions.push(pick(rng, [
-      `Great social chemistry here. If it feels right, creating space for real emotional sharing could deepen what's already there.`,
-      `You connect well socially. A natural next step might be allowing more vulnerability in — sharing something you're struggling with, not just what you're excited about.`,
-    ]));
-  }
-
-  if (hasPhysicalCore && hasEmotionalCore) {
+  if (hasPhysicalActive && hasEmotionalActive) {
     suggestions.push(pick(rng, [
       `Physical and emotional intimacy together create a powerful feedback loop. Keep nurturing both — intentional touch during emotional moments amplifies safety.`,
       `The combination of body and heart here is potent. Simple things like holding hands during a difficult conversation can deepen both dimensions at once.`,
     ]));
   }
 
-  if (potentialItems.length > 0) {
+  if (notSure.length > 0) {
     suggestions.push(pick(rng, [
-      `You've identified ${listNaturally(potentialItems)} as potential. If you want to explore any of these, name it gently — "I've been curious about..." is a low-pressure opening.`,
-      `The potential items (${listNaturally(potentialItems)}) are doors you've left open. You don't have to walk through them — but if one calls to you, a simple "what if we tried..." can start the conversation.`,
+      `You've marked ${listNaturally(notSure)} as "not sure yet." If any of these spark curiosity, try naming it gently — "I've been wondering about..." is a low-pressure opening.`,
+      `The "not sure" items (${listNaturally(notSure)}) are worth revisiting over time. Your feelings may clarify as the connection evolves.`,
     ]));
   }
 
-  if (coreItems.length > 0 && rhythmItems.length === 0 && sometimesItems.length === 0) {
+  if (activelyWant.length > 0 && openTo.length === 0 && notSure.length === 0) {
     suggestions.push(pick(rng, [
-      `Your connection is intense but narrow — all core, not much around it. Consider adding rituals or regular touchpoints that aren't about the main thing. Breadth protects depth.`,
-      `It's all signal, no padding. That intensity is beautiful, but adding some lighter, regular interactions creates resilience. Not everything has to be essential.`,
-    ]));
-  }
-
-  if (sometimesItems.length > 2 && coreItems.length <= 1) {
-    suggestions.push(pick(rng, [
-      `You have many "sometimes" threads. If any want to become more regular, try building a small ritual around them — a weekly call, a monthly adventure, a standing invitation.`,
-      `Lots of occasional flavors here. Pick one that excites you both and give it a container — a recurring time, a shared project — and see if it grows.`,
-    ]));
-  }
-
-  const timeRhythmItems = getCategoryItems(connection, 'time-rhythm');
-  const seasonal = timeRhythmItems.some((t) =>
-    t.sub.toLowerCase().includes('seasonal')
-  );
-  if (seasonal) {
-    suggestions.push(pick(rng, [
-      `Since your connection has a seasonal quality, lean into it — plan something meaningful for when you're together so those periods feel intentional.`,
-      `Seasonal connections thrive on anticipation and intention. Start planning your next overlap early, and let the in-between time build longing rather than distance.`,
+      `You're very clear about what you want — and that's powerful. Just remember to leave a little room for the connection to surprise you.`,
+      `Strong clarity here. Consider whether there are areas you haven't explored yet that might add unexpected richness.`,
     ]));
   }
 
@@ -316,10 +224,12 @@ export function analyzeOverlap(
 
   const allSubs = new Set([...myRatings.keys(), ...theirRatings.keys()]);
 
-  const sharedCore: string[] = [];
-  const sharedRhythm: string[] = [];
-  const sharedSometimes: string[] = [];
-  const sharedPotential: string[] = [];
+  // Reusing field names for backward compat with display components
+  // sharedCore = both "actively want", sharedRhythm = both "open to", etc.
+  const sharedCore: string[] = [];     // both actively want
+  const sharedRhythm: string[] = [];   // both open to
+  const sharedSometimes: string[] = []; // both not sure yet
+  const sharedPotential: string[] = []; // both not available for
   const uniqueToMe: { sub: string; tier: Tier }[] = [];
   const uniqueToThem: { sub: string; tier: Tier }[] = [];
 
@@ -328,14 +238,23 @@ export function analyzeOverlap(
     const theirTier = theirRatings.get(sub);
 
     if (myTier && theirTier) {
-      const tiers: Tier[] = ['potential', 'sometimes', 'rhythm', 'core'];
-      const sharedLevel = Math.min(tiers.indexOf(myTier), tiers.indexOf(theirTier));
-      const effectiveTier = tiers[sharedLevel];
-
-      if (effectiveTier === 'core') sharedCore.push(sub);
-      else if (effectiveTier === 'rhythm') sharedRhythm.push(sub);
-      else if (effectiveTier === 'sometimes') sharedSometimes.push(sub);
-      else sharedPotential.push(sub);
+      if (myTier === theirTier) {
+        if (myTier === 'must-have') sharedCore.push(sub);
+        else if (myTier === 'open') sharedRhythm.push(sub);
+        else if (myTier === 'maybe') sharedSometimes.push(sub);
+        else sharedPotential.push(sub);
+      } else {
+        // Different tiers — both named it but at different levels
+        // Put in the "lower" shared bucket
+        const positive = ['must-have', 'open', 'maybe'];
+        if (positive.includes(myTier) && positive.includes(theirTier)) {
+          sharedRhythm.push(sub); // both want it at some level
+        } else {
+          // One wants it, the other doesn't — unique to each
+          uniqueToMe.push({ sub, tier: myTier });
+          uniqueToThem.push({ sub, tier: theirTier });
+        }
+      }
     } else if (myTier && !theirTier) {
       uniqueToMe.push({ sub, tier: myTier });
     } else if (!myTier && theirTier) {
@@ -345,48 +264,48 @@ export function analyzeOverlap(
 
   const myCatIds = new Set(myConnection.categories.filter((c) => c.ratings.length > 0).map((c) => c.categoryId));
   const theirCatIds = new Set(theirConnection.categories.filter((c) => c.ratings.length > 0).map((c) => c.categoryId));
-  const alignedCategories = [...myCatIds].filter((id) => theirCatIds.has(id)).map((id) => getCategoryName(id));
+  const alignedCategories = [...myCatIds].filter((id) => theirCatIds.has(id));
 
   const paragraphs: string[] = [];
-  const totalShared = sharedCore.length + sharedRhythm.length + sharedSometimes.length + sharedPotential.length;
+  const totalShared = sharedCore.length + sharedRhythm.length + sharedSometimes.length;
 
   if (totalShared === 0) {
     paragraphs.push(pick(rng, [
-      `You and ${theirConnection.name} didn't select any of the same subcategories. This doesn't mean incompatibility — it might mean you experience the connection through very different lenses. That contrast can be its own kind of richness.`,
-      `No direct overlap in what you each named — which is fascinating, not alarming. You may be describing the same connection from two completely different angles.`,
+      `You and ${theirConnection.name} didn't align on the same items. This doesn't mean incompatibility — it might mean you experience the connection through different lenses. That contrast can be its own kind of richness.`,
+      `No direct overlap in what you each want — which is fascinating, not alarming. You may be describing the same connection from two completely different angles.`,
     ]));
   } else {
     paragraphs.push(pick(rng, [
-      `You and ${theirConnection.name} share ${totalShared} overlapping thread${totalShared > 1 ? 's' : ''} in how you see this connection.`,
-      `There are ${totalShared} point${totalShared > 1 ? 's' : ''} where your maps align — places where you're both seeing the same thing.`,
+      `You and ${theirConnection.name} share ${totalShared} overlapping thread${totalShared > 1 ? 's' : ''} in what you want from this connection.`,
+      `There are ${totalShared} point${totalShared > 1 ? 's' : ''} where your maps align — places where you both want the same things.`,
     ]));
   }
 
   if (sharedCore.length > 0) {
     paragraphs.push(pick(rng, [
-      `You both see ${listNaturally(sharedCore)} as core. This is powerful — you agree on what's foundational. You're building on the same ground.`,
-      `${listNaturally(sharedCore)} — core for both of you. That shared clarity is rare and worth protecting.`,
+      `You both actively want ${listNaturally(sharedCore)}. This is powerful — you agree on what's essential. You're building on the same ground.`,
+      `${listNaturally(sharedCore)} — actively wanted by both of you. That shared clarity is rare and worth protecting.`,
     ]));
   }
 
   if (sharedRhythm.length > 0) {
     paragraphs.push(pick(rng, [
-      `${listNaturally(sharedRhythm)} ${sharedRhythm.length === 1 ? 'is' : 'are'} a shared rhythm — you both recognize ${sharedRhythm.length === 1 ? 'it' : 'them'} as a regular part of how you connect.`,
-      `You both feel the rhythm of ${listNaturally(sharedRhythm)}. It's the shared pulse between you.`,
+      `${listNaturally(sharedRhythm)} ${sharedRhythm.length === 1 ? 'is' : 'are'} something you're both open to — a shared sense of possibility.`,
+      `You both see room for ${listNaturally(sharedRhythm)}. It's the shared potential between you.`,
     ]));
   }
 
   if (uniqueToMe.length > 0 && uniqueToThem.length > 0) {
     paragraphs.push(pick(rng, [
-      `There are things you each see that the other didn't name — and that's normal. No two people experience a connection identically. These differences are invitations for curiosity.`,
-      `You each named things the other didn't — which means there's still territory to explore in conversation. "I see this between us — do you?" can be a beautiful question.`,
+      `There are things you each see differently — and that's normal. No two people experience a connection identically. These differences are invitations for curiosity.`,
+      `You each named things the other didn't — which means there's still territory to explore in conversation.`,
     ]));
   }
 
-  if (sharedCore.length >= 2) {
+  if (sharedPotential.length > 0) {
     paragraphs.push(pick(rng, [
-      `With ${sharedCore.length} shared core elements, you have strong mutual clarity. You both know what this is. That shared understanding is a gift.`,
-      `Multiple core agreements — that's a connection with a shared vocabulary. You're not guessing at what matters; you both already know.`,
+      `You both marked ${listNaturally(sharedPotential)} as not available — and that shared boundary is just as important as shared desires.`,
+      `Aligned boundaries on ${listNaturally(sharedPotential)}. Knowing what's off the table together creates safety for everything else.`,
     ]));
   }
 

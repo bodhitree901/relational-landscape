@@ -1,13 +1,13 @@
-export type Tier = 'potential' | 'sometimes' | 'rhythm' | 'core';
+export type Tier = 'must-have' | 'open' | 'maybe' | 'off-limits';
 
 export const TIER_LABELS: Record<Tier, string> = {
-  potential: 'Potential to Emerge',
-  sometimes: 'Happens Sometimes',
-  rhythm: 'Part of the Rhythm',
-  core: 'Core to the Connection',
+  'must-have': 'Actively Want',
+  'open': 'Open To',
+  'maybe': 'Not Sure',
+  'off-limits': 'Not Available For',
 };
 
-export const TIER_ORDER: Tier[] = ['potential', 'sometimes', 'rhythm', 'core'];
+export const TIER_ORDER: Tier[] = ['must-have', 'open', 'maybe', 'off-limits'];
 
 export interface SubcategoryRating {
   subcategory: string;

@@ -13,14 +13,16 @@ export default function InstructionOverlay({ onDismiss }: InstructionOverlayProp
       {/* Card */}
       <div className="relative watercolor-card bg-[var(--background)] p-8 max-w-sm w-full animate-tooltip">
         <h2
-          className="text-xl font-semibold text-center mb-6"
+          className="text-xl font-semibold text-center mb-2"
           style={{ fontFamily: 'Georgia, serif' }}
         >
-          How it works
+          Map this connection
         </h2>
+        <p className="text-xs opacity-40 text-center mb-6">
+          How does this relationship show up for you?
+        </p>
 
         <div className="space-y-5 mb-8">
-          {/* Tap */}
           <div className="flex items-start gap-4">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg"
@@ -30,11 +32,10 @@ export default function InstructionOverlay({ onDismiss }: InstructionOverlayProp
             </div>
             <div>
               <p className="text-sm font-medium mb-0.5">Tap</p>
-              <p className="text-xs opacity-50 leading-relaxed">See a description of what each item means</p>
+              <p className="text-xs opacity-50 leading-relaxed">See what each item means</p>
             </div>
           </div>
 
-          {/* Drag */}
           <div className="flex items-start gap-4">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg"
@@ -44,21 +45,23 @@ export default function InstructionOverlay({ onDismiss }: InstructionOverlayProp
             </div>
             <div>
               <p className="text-sm font-medium mb-0.5">Drag to an edge</p>
-              <p className="text-xs opacity-50 leading-relaxed">Assign it to a tier &mdash; drag right, left, up, or down to sort it</p>
+              <p className="text-xs opacity-50 leading-relaxed">Sort each item into a tier based on this specific connection</p>
             </div>
           </div>
 
-          {/* Undo */}
           <div className="flex items-start gap-4">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
               style={{ background: 'rgba(137,207,240,0.15)' }}
             >
-              <span className="text-sm opacity-40">&times;</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-40">
+                <polyline points="1 4 1 10 7 10" />
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+              </svg>
             </div>
             <div>
               <p className="text-sm font-medium mb-0.5">Undo</p>
-              <p className="text-xs opacity-50 leading-relaxed">Tap a sorted item below the pool to put it back</p>
+              <p className="text-xs opacity-50 leading-relaxed">Tap the undo button to bring back the last sorted item</p>
             </div>
           </div>
         </div>

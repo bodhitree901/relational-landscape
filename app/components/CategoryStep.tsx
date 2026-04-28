@@ -15,28 +15,28 @@ interface CategoryStepProps {
 }
 
 const TIER_COLORS: Record<Tier, string> = {
-  potential: '#C5A3CF',
-  sometimes: '#F5D06E',
-  rhythm: '#89CFF0',
-  core: '#F4A89A',
+  'off-limits': '#D4837F',
+  'maybe': '#F5D06E',
+  'open': '#89CFF0',
+  'must-have': '#E8838A',
 };
 
 const TIER_LONG: Record<Tier, string> = {
-  potential: 'has potential to emerge',
-  sometimes: 'shows up sometimes',
-  rhythm: 'part of our rhythm',
-  core: 'core to the connection',
+  'off-limits': 'not available for',
+  'maybe': 'not sure yet',
+  'open': 'open to',
+  'must-have': 'actively want',
 };
 
 const TIER_RINGS: Record<Tier, number> = {
-  potential: 1,
-  sometimes: 1,
-  rhythm: 2,
-  core: 3,
+  'off-limits': 1,
+  'maybe': 1,
+  'open': 2,
+  'must-have': 3,
 };
 
 // Arc positions — spread wider, more upward for finger clearance
-const ARC_TIERS: Tier[] = ['potential', 'sometimes', 'rhythm', 'core'];
+const ARC_TIERS: Tier[] = ['off-limits', 'maybe', 'open', 'must-have'];
 
 // Time & Rhythm groupings
 const TIME_COMMUNICATION = new Set([
@@ -100,10 +100,10 @@ function ArcMenu({
   // Orb positions: arc above center label
   const orbSize = 48;
   const positions = [
-    { tier: 'potential' as Tier, x: centerX - 120, y: centerY - 10 },
-    { tier: 'sometimes' as Tier, x: centerX - 42, y: centerY - 70 },
-    { tier: 'rhythm' as Tier, x: centerX + 42, y: centerY - 70 },
-    { tier: 'core' as Tier, x: centerX + 120, y: centerY - 10 },
+    { tier: 'off-limits' as Tier, x: centerX - 120, y: centerY - 10 },
+    { tier: 'maybe' as Tier, x: centerX - 42, y: centerY - 70 },
+    { tier: 'open' as Tier, x: centerX + 42, y: centerY - 70 },
+    { tier: 'must-have' as Tier, x: centerX + 120, y: centerY - 10 },
   ];
 
   return (

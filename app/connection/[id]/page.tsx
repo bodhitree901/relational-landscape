@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Connection, SharedComparison, TIER_LABELS, TIER_ORDER } from '../../lib/types';
+import { Connection, SharedComparison } from '../../lib/types';
 import { getConnection, deleteConnection, getSharedComparisonForConnection } from '../../lib/storage';
 import { DEFAULT_CATEGORIES } from '../../lib/categories';
-import { analyzeConnection, analyzeOverlap } from '../../lib/analysis';
-import { generateShareUrl } from '../../lib/sharing';
-import { createInvitation, getShareUrl, getResponseForConnection, snapshotToConnection } from '../../lib/supabase/invitations';
+import { createInvitation, getShareUrl, getResponseForConnection, snapshotToConnection, subscribeToResponses } from '../../lib/supabase/invitations';
 import type { ProfileSnapshot } from '../../lib/supabase/types';
 import { useAuth } from '../../components/AuthProvider';
-import WordCloud from '../../components/WordCloud';
+import { signInWithGoogle, signInWithMagicLink } from '../../lib/supabase/auth';
+import CategoryCards from '../../components/CategoryCards';
+import SharedCategoryCards from '../../components/SharedCategoryCards';
+import Highlights from '../../components/Highlights';
+import DefaultsComparison from '../../components/DefaultsComparison';
 import { ConnectionCircle } from '../../components/ColorPicker';
 import Link from 'next/link';
 
@@ -20,9 +22,9 @@ function getCategoryById(id: string) {
 
 function getDefiningWords(connection: Connection): string[] {
   const allRatings = connection.categories.flatMap((c) => c.ratings);
-  // Prioritize core, then rhythm
-  const core = allRatings.filter((r) => r.tier === 'core');
-  const rhythm = allRatings.filter((r) => r.tier === 'rhythm');
+  // Prioritize must-have, then open
+  const core = allRatings.filter((r) => r.tier === 'must-have');
+  const rhythm = allRatings.filter((r) => r.tier === 'open');
   const pool = [...core, ...rhythm, ...allRatings];
 
   // Pick up to 3 unique, short-ish labels
@@ -94,7 +96,7 @@ export default function ConnectionProfile() {
   const [showDelete, setShowDelete] = useState(false);
   const [copied, setCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
-  const [showShareInfo, setShowShareInfo] = useState(false);
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const [sharedComparison, setSharedComparison] = useState<SharedComparison | null>(null);
   const [supabaseResponse, setSupabaseResponse] = useState<{
     responderName: string;
@@ -102,7 +104,7 @@ export default function ConnectionProfile() {
     myProfile: Connection;
     theirProfile: Connection;
   } | null>(null);
-  const [showComparison, setShowComparison] = useState(false);
+  const [viewMode, setViewMode] = useState<'my' | 'shared'>('my');
 
   useEffect(() => {
     const c = getConnection(params.id as string);
@@ -116,8 +118,8 @@ export default function ConnectionProfile() {
     }
   }, [params.id, router]);
 
-  // Check Supabase for responses when authenticated
-  useEffect(() => {
+  // Fetch responses from Supabase
+  const fetchResponse = () => {
     if (!user || !connection) return;
     getResponseForConnection(user.id, connection.id).then((data) => {
       if (data && data.responses && data.responses.length > 0) {
@@ -130,16 +132,40 @@ export default function ConnectionProfile() {
           myProfile,
           theirProfile,
         });
+        // Mark this response as seen (clear the badge)
+        const SEEN_KEY = 'rl_seen_responses';
+        const seen = JSON.parse(localStorage.getItem(SEEN_KEY) || '[]');
+        if (!seen.includes(connection.id)) {
+          seen.push(connection.id);
+          localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
+          // Auto-switch to shared view when there's a new response
+          setViewMode('shared');
+        }
       }
     });
+  };
+
+  // Check Supabase for responses on mount
+  useEffect(() => {
+    fetchResponse();
+  }, [user, connection]);
+
+  // Subscribe to real-time updates
+  useEffect(() => {
+    if (!user || !connection) return;
+    const sub = subscribeToResponses(user.id, connection.id, () => {
+      // Person B just responded — fetch the new data
+      fetchResponse();
+    });
+    return () => sub.unsubscribe();
   }, [user, connection]);
 
   if (!connection) return null;
 
+  const hasSharedData = !!(supabaseResponse || sharedComparison);
   const allRatings = connection.categories.flatMap((c) => c.ratings);
   const totalCount = allRatings.length;
   const definingWords = getDefiningWords(connection);
-  const analysis = analyzeConnection(connection);
 
   const handleDelete = () => {
     deleteConnection(connection.id);
@@ -147,25 +173,24 @@ export default function ConnectionProfile() {
   };
 
   const handleShare = async () => {
-    // Use Supabase sharing when authenticated, fallback to base64 URL
-    if (user) {
-      setSharing(true);
-      try {
-        const result = await createInvitation(user.id, connection.id, connection);
-        if ('token' in result) {
-          const url = getShareUrl(result.token);
-          await copyToClipboard(url);
-        } else {
-          // Fallback to old method
-          await copyToClipboard(generateShareUrl(connection));
-        }
-      } catch {
-        await copyToClipboard(generateShareUrl(connection));
-      }
-      setSharing(false);
-    } else {
-      await copyToClipboard(generateShareUrl(connection));
+    if (!user) {
+      setShowSignInPrompt(true);
+      return;
     }
+    const sharerName = typeof window !== 'undefined' ? localStorage.getItem('rl_my_name') || undefined : undefined;
+    setSharing(true);
+    try {
+      const result = await createInvitation(user.id, connection.id, connection, sharerName);
+      if ('token' in result) {
+        const url = getShareUrl(result.token);
+        await copyToClipboard(url);
+      } else {
+        setShowSignInPrompt(true);
+      }
+    } catch {
+      setShowSignInPrompt(true);
+    }
+    setSharing(false);
   };
 
   const copyToClipboard = async (url: string) => {
@@ -211,267 +236,109 @@ export default function ConnectionProfile() {
       <div className="flex flex-col items-center px-5 pt-4 pb-6">
         <ConnectionCircle color={connection.color || connection.emoji || '#C5A3CF'} size={56} />
         <h1 className="text-2xl font-semibold mt-3">{connection.name}</h1>
-        {definingWords.length > 0 && (
-          <p className="mt-2 text-sm opacity-45 italic tracking-wide">
-            {definingWords.join(' · ')}
-          </p>
-        )}
+        <button
+          onClick={handleShare}
+          className="mt-3 px-6 py-2.5 rounded-full text-sm font-medium transition-all active:scale-95"
+          style={{
+            background: copied ? '#009483' : connection.color || '#009483',
+            color: 'white',
+            boxShadow: `0 4px 14px ${copied ? '#00948340' : (connection.color || '#009483')}40`,
+          }}
+        >
+          {copied ? 'Link Copied!' : sharing ? 'Generating...' : 'Share with ' + connection.name}
+        </button>
       </div>
 
-      {/* Word Cloud */}
-      <div className="mx-5 watercolor-card bg-white/50 p-5 mb-6">
-        <h2 className="text-sm font-medium opacity-50 mb-2 uppercase tracking-wide text-center">
-          Connection Landscape
-        </h2>
-        <WordCloud connection={connection} />
-      </div>
-
-      {/* Analysis */}
-      {totalCount > 0 && (
-        <div className="mx-5 watercolor-card watercolor-lavender p-5 mb-6">
-          <h2 className="text-sm font-medium opacity-50 mb-3 uppercase tracking-wide">
-            Reading This Connection
-          </h2>
-          <div className="space-y-3">
-            {analysis.summary.split('\n\n').map((paragraph, i) => (
-              <p key={i} className="text-sm leading-relaxed opacity-75">
-                {paragraph}
-              </p>
-            ))}
+      {/* View Toggle — only show when shared data exists */}
+      {hasSharedData && (
+        <div className="px-5 mb-6">
+          <div className="flex rounded-xl overflow-hidden border border-black/10">
+            <button
+              onClick={() => setViewMode('my')}
+              className="flex-1 py-2.5 text-sm font-medium transition-all"
+              style={{
+                background: viewMode === 'my' ? (connection.color || '#009483') : 'transparent',
+                color: viewMode === 'my' ? 'white' : 'rgba(0,0,0,0.4)',
+              }}
+            >
+              My View
+            </button>
+            <button
+              onClick={() => setViewMode('shared')}
+              className="flex-1 py-2.5 text-sm font-medium transition-all"
+              style={{
+                background: viewMode === 'shared' ? (connection.color || '#009483') : 'transparent',
+                color: viewMode === 'shared' ? 'white' : 'rgba(0,0,0,0.4)',
+              }}
+            >
+              Shared View
+            </button>
           </div>
-
-          {analysis.suggestions.length > 0 && (
-            <div className="mt-5 pt-4 border-t border-black/5">
-              <h3 className="text-xs font-medium opacity-40 mb-3 uppercase tracking-wide">
-                Ways to connect
-              </h3>
-              <div className="space-y-2">
-                {analysis.suggestions.map((suggestion, i) => (
-                  <div key={i} className="flex gap-2">
-                    <span className="text-sm opacity-40 shrink-0">~</span>
-                    <p className="text-sm leading-relaxed opacity-65">{suggestion}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
-      {/* Category breakdown */}
-      <div className="px-5 space-y-4 mb-6">
-        {connection.categories.map((cat) => {
-          const catDef = getCategoryById(cat.categoryId);
-          if (!catDef || cat.ratings.length === 0) return null;
-          return (
-            <div
-              key={cat.categoryId}
-              className={`watercolor-card p-4 ${catDef.watercolorClass}`}
-            >
-              <h3 className="text-sm font-semibold mb-3" style={{ color: catDef.color }}>
-                {catDef.name}
-              </h3>
-              {TIER_ORDER.filter((tier) => cat.ratings.some((r) => r.tier === tier)).map((tier) => (
-                <div key={tier} className="mb-2">
-                  <p className="text-xs opacity-40 mb-1">{TIER_LABELS[tier]}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {cat.ratings
-                      .filter((r) => r.tier === tier)
-                      .map((r) => (
-                        <span
-                          key={r.subcategory}
-                          className="text-xs px-2.5 py-1 rounded-full"
-                          style={{ background: `${catDef.color}25` }}
-                        >
-                          {r.subcategory}
-                        </span>
-                      ))}
-                  </div>
-                </div>
-              ))}
+      {/* ===== MY VIEW ===== */}
+      {viewMode === 'my' && (
+        <>
+          {/* Act 1: Highlights (solo — no comparison) */}
+          <div className="px-5 mb-8">
+            <Highlights connection={connection} />
+          </div>
+
+          {/* Act 2: Connection Landscape */}
+          <div className="px-5 mb-8">
+            <h2 className="text-2xl font-extrabold uppercase tracking-wide mb-3 px-1" style={{ color: 'rgba(0,0,0,0.7)' }}>
+              Connection Landscape
+            </h2>
+            <CategoryCards connection={connection} />
+          </div>
+
+          {/* Act 3: Comparison to My Defaults */}
+          <div className="px-5 mb-8">
+            <h2 className="text-2xl font-extrabold uppercase tracking-wide mb-3 px-1" style={{ color: 'rgba(0,0,0,0.7)' }}>
+              Compared to My Defaults
+            </h2>
+            <DefaultsComparison connection={connection} />
+          </div>
+        </>
+      )}
+
+      {/* ===== SHARED VIEW ===== */}
+      {viewMode === 'shared' && hasSharedData && (() => {
+        const theirConn = supabaseResponse ? supabaseResponse.theirProfile :
+          sharedComparison ? sharedComparison.theirProfile : null;
+        const theirDisplayName = supabaseResponse ? supabaseResponse.responderName :
+          sharedComparison ? sharedComparison.theirProfile.name : '';
+        const myDisplayName = typeof window !== 'undefined' ? localStorage.getItem('rl_my_name') || connection.name : connection.name;
+
+        return (
+          <>
+            {/* Highlights with comparison */}
+            <div className="px-5 mb-8">
+              <Highlights
+                connection={connection}
+                theirConnection={theirConn || undefined}
+                theirName={theirDisplayName || undefined}
+              />
             </div>
-          );
-        })}
-      </div>
 
-      {/* Shared comparison (if person B replied) */}
-      {sharedComparison && (() => {
-        const comp = sharedComparison;
-        const overlapData = analyzeOverlap(comp.myProfile, comp.theirProfile);
-        const theirColor = comp.theirProfile.color || comp.theirProfile.emoji || '#C5A3CF';
-        const totalShared = overlapData.sharedCore.length + overlapData.sharedRhythm.length +
-          overlapData.sharedSometimes.length + overlapData.sharedPotential.length;
-        return (
-          <div className="mx-5 mb-6">
-            <button
-              onClick={() => setShowComparison(!showComparison)}
-              className="w-full watercolor-card p-4 text-left transition-all active:scale-[0.99]"
-              style={{ background: 'linear-gradient(135deg, rgba(197,163,207,0.1), rgba(137,207,240,0.1))' }}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center -space-x-2">
-                    <ConnectionCircle color={connection.color || connection.emoji || '#C5A3CF'} size={28} />
-                    <ConnectionCircle color={theirColor} size={28} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Shared view with {comp.theirProfile.name}</p>
-                    <p className="text-xs opacity-40">
-                      {totalShared} overlap{totalShared !== 1 ? 's' : ''} · {overlapData.sharedCore.length} core
-                    </p>
-                  </div>
-                </div>
-                <span className="text-xs opacity-30">{showComparison ? '▲' : '▼'}</span>
-              </div>
-            </button>
-            {showComparison && (
-              <div className="mt-3 space-y-3">
-                {overlapData.sharedCore.length > 0 && (
-                  <div className="watercolor-card watercolor-rose p-3">
-                    <p className="text-xs opacity-40 mb-1.5">Both see as core</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {overlapData.sharedCore.map((s) => (
-                        <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-rose/25 font-medium">{s}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {overlapData.sharedRhythm.length > 0 && (
-                  <div className="watercolor-card watercolor-blue p-3">
-                    <p className="text-xs opacity-40 mb-1.5">Shared rhythm</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {overlapData.sharedRhythm.map((s) => (
-                        <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-blue/20">{s}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {(overlapData.uniqueToMe.length > 0 || overlapData.uniqueToThem.length > 0) && (
-                  <div className="flex gap-2">
-                    {overlapData.uniqueToMe.length > 0 && (
-                      <div className="flex-1 watercolor-card bg-white/50 p-3">
-                        <p className="text-xs opacity-35 mb-1.5">Only you named</p>
-                        <div className="flex flex-wrap gap-1">
-                          {overlapData.uniqueToMe.slice(0, 6).map((u) => (
-                            <span key={u.sub} className="text-xs px-2 py-0.5 rounded-full bg-black/5">{u.sub}</span>
-                          ))}
-                          {overlapData.uniqueToMe.length > 6 && (
-                            <span className="text-xs opacity-30">+{overlapData.uniqueToMe.length - 6}</span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {overlapData.uniqueToThem.length > 0 && (
-                      <div className="flex-1 watercolor-card bg-white/50 p-3">
-                        <p className="text-xs opacity-35 mb-1.5">Only {comp.theirProfile.name}</p>
-                        <div className="flex flex-wrap gap-1">
-                          {overlapData.uniqueToThem.slice(0, 6).map((u) => (
-                            <span key={u.sub} className="text-xs px-2 py-0.5 rounded-full bg-black/5">{u.sub}</span>
-                          ))}
-                          {overlapData.uniqueToThem.length > 6 && (
-                            <span className="text-xs opacity-30">+{overlapData.uniqueToThem.length - 6}</span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                <div className="watercolor-card watercolor-lavender p-4">
-                  <div className="space-y-2">
-                    {overlapData.overlapSummary.split('\n\n').slice(0, 2).map((p, i) => (
-                      <p key={i} className="text-xs leading-relaxed opacity-65">{p}</p>
-                    ))}
-                  </div>
-                </div>
+            {/* Connection Landscape (shared heat map) */}
+            {theirConn && (
+              <div className="px-5 mb-8">
+                <h2 className="text-2xl font-extrabold uppercase tracking-wide mb-3 px-1" style={{ color: 'rgba(0,0,0,0.7)' }}>
+                  Connection Landscape
+                </h2>
+                <SharedCategoryCards
+                  myConnection={connection}
+                  theirConnection={theirConn}
+                  myName={myDisplayName}
+                  theirName={theirDisplayName}
+                />
               </div>
             )}
-          </div>
+          </>
         );
       })()}
-
-      {/* Supabase response (if person B replied via /share/[token]) */}
-      {supabaseResponse && !sharedComparison && (() => {
-        const { myProfile, theirProfile, responderName, responderColor } = supabaseResponse;
-        const overlapData = analyzeOverlap(myProfile, theirProfile);
-        const totalShared = overlapData.sharedCore.length + overlapData.sharedRhythm.length +
-          overlapData.sharedSometimes.length + overlapData.sharedPotential.length;
-        return (
-          <div className="mx-5 mb-6">
-            <button
-              onClick={() => setShowComparison(!showComparison)}
-              className="w-full watercolor-card p-4 text-left transition-all active:scale-[0.99]"
-              style={{ background: 'linear-gradient(135deg, rgba(197,163,207,0.1), rgba(137,207,240,0.1))' }}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center -space-x-2">
-                    <ConnectionCircle color={connection.color || connection.emoji || '#C5A3CF'} size={28} />
-                    <ConnectionCircle color={responderColor} size={28} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Shared view with {responderName}</p>
-                    <p className="text-xs opacity-40">
-                      {totalShared} overlap{totalShared !== 1 ? 's' : ''} · {overlapData.sharedCore.length} core
-                    </p>
-                  </div>
-                </div>
-                <span className="text-xs opacity-30">{showComparison ? '▲' : '▼'}</span>
-              </div>
-            </button>
-            {showComparison && (
-              <div className="mt-3 space-y-3">
-                {overlapData.sharedCore.length > 0 && (
-                  <div className="watercolor-card watercolor-rose p-3">
-                    <p className="text-xs opacity-40 mb-1.5">Both see as core</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {overlapData.sharedCore.map((s) => (
-                        <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-rose/25 font-medium">{s}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {overlapData.sharedRhythm.length > 0 && (
-                  <div className="watercolor-card watercolor-blue p-3">
-                    <p className="text-xs opacity-40 mb-1.5">Shared rhythm</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {overlapData.sharedRhythm.map((s) => (
-                        <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-blue/20">{s}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="watercolor-card watercolor-lavender p-4">
-                  <div className="space-y-2">
-                    {overlapData.overlapSummary.split('\n\n').slice(0, 2).map((p, i) => (
-                      <p key={i} className="text-xs leading-relaxed opacity-65">{p}</p>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* Share info (collapsible, subtle) */}
-      <div className="mx-5 mb-6">
-        <button
-          onClick={() => setShowShareInfo(!showShareInfo)}
-          className="text-xs opacity-30 hover:opacity-50 transition-opacity"
-        >
-          How does sharing work?
-        </button>
-        {showShareInfo && (
-          <div className="mt-2 p-3 rounded-xl bg-white/50 text-xs opacity-50 leading-relaxed space-y-2">
-            <p>1. Tap &ldquo;Share&rdquo; above to copy a link</p>
-            <p>2. Send it to {connection.name}</p>
-            <p>3. They fill out their own version of this connection</p>
-            <p>4. They tap &ldquo;Share back&rdquo; and send the return link to you</p>
-            <p>5. Open their link to see the overlap and save it here</p>
-            <p className="opacity-70 italic">No accounts, no servers — everything stays on-device.</p>
-          </div>
-        )}
-      </div>
 
       {/* Delete */}
       <div className="px-5 pt-2">
@@ -499,6 +366,88 @@ export default function ConnectionProfile() {
             </button>
           </div>
         )}
+      </div>
+
+      {/* Sign-in prompt modal */}
+      {showSignInPrompt && (
+        <SignInPrompt
+          onClose={() => setShowSignInPrompt(false)}
+          connectionName={connection.name}
+        />
+      )}
+    </div>
+  );
+}
+
+function SignInPrompt({ onClose, connectionName }: { onClose: () => void; connectionName: string }) {
+  const [email, setEmail] = useState('');
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [error, setError] = useState('');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-8">
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-[4px]" onClick={onClose} />
+      <div className="relative watercolor-card bg-[var(--background)] p-8 max-w-sm w-full animate-tooltip">
+        <h2
+          className="text-xl font-semibold text-center mb-2"
+          style={{ fontFamily: 'Georgia, serif' }}
+        >
+          Sign in to share
+        </h2>
+        <p className="text-xs text-center opacity-50 mb-6">
+          Sign in so {connectionName} can send their answers back to you and you&rsquo;ll be notified when they respond.
+        </p>
+
+        {!magicLinkSent ? (
+          <div>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && email.includes('@')) {
+                  signInWithMagicLink(email).then(() => setMagicLinkSent(true)).catch((e) => setError((e as Error).message));
+                }
+              }}
+              placeholder="your@email.com"
+              className="w-full text-center text-sm bg-transparent border-b-2 border-black/10 focus:border-black/30 outline-none pb-2 placeholder:opacity-30 transition-colors mb-3"
+              autoFocus
+            />
+            <button
+              onClick={async () => {
+                if (!email.includes('@')) return;
+                try {
+                  await signInWithMagicLink(email);
+                  setMagicLinkSent(true);
+                } catch (e) {
+                  setError((e as Error).message);
+                }
+              }}
+              disabled={!email.includes('@')}
+              className="w-full py-3 rounded-2xl text-white font-medium text-sm transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-30"
+              style={{ background: 'linear-gradient(135deg, var(--peach), var(--lavender))' }}
+            >
+              Send magic link
+            </button>
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-sm opacity-60 mb-1">Check your email</p>
+            <p className="text-xs opacity-40">We sent a sign-in link to {email}</p>
+            <p className="text-xs opacity-30 mt-3">Once signed in, tap Share again</p>
+          </div>
+        )}
+
+        {error && (
+          <p className="text-xs text-red-500 text-center mt-3">{error}</p>
+        )}
+
+        <button
+          onClick={onClose}
+          className="w-full mt-4 text-xs opacity-40 hover:opacity-60 transition-opacity"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   );

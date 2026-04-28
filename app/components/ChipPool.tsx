@@ -1,7 +1,25 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { SUBCATEGORY_DEFINITIONS } from '../lib/definitions';
+
+/* ---- Haptic helper ---- */
+function triggerHaptic(style: 'light' | 'medium') {
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(style === 'light' ? 30 : [20, 40, 20]);
+    }
+  } catch {}
+}
+
+// Prime vibration API on first user gesture (needed on some Android browsers)
+function primeHaptic() {
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(1);
+    }
+  } catch {}
+}
 
 // Generic tier config so this works for both My Menu and Connection flows
 export interface TierConfig {
@@ -28,19 +46,137 @@ interface ChipPoolProps {
   totalSteps: number;
 }
 
-const DRAG_THRESHOLD = 60;
+const DRAG_THRESHOLD = 45;
 
 /* ---- Definition tooltip ---- */
-function DefinitionTooltip({ label, onClose }: { label: string; onClose: () => void }) {
+function DefinitionTooltip({ label, onClose, isDragging }: { label: string; onClose: () => void; isDragging?: boolean }) {
   const definition = SUBCATEGORY_DEFINITIONS[label];
   if (!definition) return null;
 
   return (
     <>
-      <div className="fixed inset-0 z-40" onClick={onClose} onTouchEnd={(e) => { e.preventDefault(); onClose(); }} />
-      <div className="fixed z-50 left-1/2 top-[30%] -translate-x-1/2 -translate-y-1/2 w-72 p-4 rounded-2xl bg-white shadow-2xl border border-black/5 animate-tooltip">
-        <p className="text-sm font-semibold mb-1.5 opacity-80">{label}</p>
-        <p className="text-sm leading-relaxed opacity-55">{definition}</p>
+      {/* Only show backdrop overlay when tapped (not during drag) */}
+      {!isDragging && (
+        <div className="fixed inset-0 z-40" onClick={onClose} onTouchEnd={(e) => { e.preventDefault(); onClose(); }} />
+      )}
+      <div
+        className="fixed z-50 left-1/2 bottom-14 -translate-x-1/2 w-[85%] max-w-sm px-4 py-3 rounded-2xl bg-white/95 shadow-xl border border-black/5 backdrop-blur-sm animate-tooltip"
+        style={{ pointerEvents: isDragging ? 'none' : 'auto' }}
+      >
+        <p className="text-xs font-semibold mb-0.5" style={{ color: 'rgba(0,0,0,0.7)' }}>{label}</p>
+        <p className="text-xs leading-relaxed" style={{ color: 'rgba(0,0,0,0.45)' }}>{definition}</p>
+      </div>
+    </>
+  );
+}
+
+/* ---- Corner circle target ---- */
+// Maps edge sides to corners: right→top-right, top→top-left, bottom→bottom-left, left→bottom-right
+const SIDE_TO_CORNER: Record<string, string> = {
+  right: 'top-right',
+  top: 'top-left',
+  bottom: 'bottom-right',
+  left: 'bottom-left',
+};
+
+function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: TierConfig; active: boolean; corner: string; isDragging: boolean }) {
+  // Triangle clip paths — creates diamond opening in center
+  const clipPaths: Record<string, string> = {
+    'top-left': 'polygon(0 0, 100% 0, 0 100%)',
+    'top-right': 'polygon(0 0, 100% 0, 100% 100%)',
+    'bottom-left': 'polygon(0 0, 0 100%, 100% 100%)',
+    'bottom-right': 'polygon(100% 0, 0 100%, 100% 100%)',
+  };
+
+  // Small triangles in corners — lots of white space between them
+  const triangleStyle: Record<string, React.CSSProperties> = {
+    'top-left': { top: 0, left: 0, width: '30%', height: '30%' },
+    'top-right': { top: 0, right: 0, width: '30%', height: '30%' },
+    'bottom-left': { bottom: 0, left: 0, width: '30%', height: '30%' },
+    'bottom-right': { bottom: 0, right: 0, width: '30%', height: '30%' },
+  };
+
+  // Diagonal pill — positioned near the corner triangles
+  const pillPos: Record<string, React.CSSProperties> = {
+    'top-left': { top: '10%', left: '3%' },
+    'top-right': { top: '10%', right: '3%' },
+    'bottom-left': { bottom: '10%', left: '3%' },
+    'bottom-right': { bottom: '10%', right: '3%' },
+  };
+
+  // Diagonal rotation — pointing inward from each corner
+  const rotation: Record<string, string> = {
+    'top-left': 'rotate(-45deg)',
+    'top-right': 'rotate(45deg)',
+    'bottom-left': 'rotate(45deg)',
+    'bottom-right': 'rotate(-45deg)',
+  };
+
+  // Transform origin so pill rotates from corner outward
+  const origin: Record<string, string> = {
+    'top-left': 'left center',
+    'top-right': 'right center',
+    'bottom-left': 'left center',
+    'bottom-right': 'right center',
+  };
+
+  // Pill display labels — short to avoid clipping on mobile
+  const pillLabelMap: Record<string, string> = {
+    'Actively Want': 'Want',
+    'Open To': 'Open',
+    'Not Sure': 'Unsure',
+    'Not Available For': 'Pass',
+  };
+  const pillLabel = pillLabelMap[tier.label] || tier.label;
+
+  const pillScale = active ? 1.25 : showHints ? 1.1 : 1;
+  const opacity = active ? 1 : showHints ? 0.95 : 0.9;
+
+  return (
+    <>
+      {/* Solid triangle background */}
+      <div
+        className="absolute z-20 pointer-events-none"
+        style={{
+          ...triangleStyle[corner],
+          clipPath: clipPaths[corner],
+          background: tier.color,
+          opacity,
+          transition: 'opacity 0.3s ease-out',
+        }}
+      />
+
+      {/* Diagonal pill label — floats above triangle, full-size wrapper so labels don't clip */}
+      <div
+        className="absolute inset-0 z-30 pointer-events-none"
+      >
+        <div
+          className="absolute"
+          style={{
+            ...pillPos[corner],
+            transition: 'all 0.3s ease-out',
+          }}
+        >
+          <span
+            className="inline-block font-bold uppercase tracking-widest whitespace-nowrap"
+            style={{
+              transform: `${rotation[corner]} scale(${pillScale})`,
+              transformOrigin: origin[corner],
+              fontSize: active ? 10 : 8,
+              color: 'white',
+              background: 'rgba(0,0,0,0.15)',
+              padding: active ? '7px 16px' : '5px 12px',
+              borderRadius: 20,
+              letterSpacing: '0.08em',
+              boxShadow: active
+                ? '0 4px 16px rgba(0,0,0,0.2)'
+                : '0 2px 8px rgba(0,0,0,0.1)',
+              transition: 'all 0.3s ease-out',
+            }}
+          >
+            {pillLabel}
+          </span>
+        </div>
       </div>
     </>
   );
@@ -67,66 +203,93 @@ export default function ChipPool({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [activeZone, setActiveZone] = useState<string | null>(null);
   const [showDef, setShowDef] = useState<string | null>(null);
+  const [undoStack, setUndoStack] = useState<string[]>([]);
   const startPos = useRef({ x: 0, y: 0 });
-  const hasMoved = useRef(false);
+  const isDragging = useRef(false);
+  const lastZone = useRef<string | null>(null);
+  const pendingItem = useRef<string | null>(null);
 
-  // Build side→tierId map
-  const sideToTier = useRef(
-    Object.fromEntries(tiers.map((t) => [t.side, t.id])) as Record<string, string>
-  ).current;
-
-  const tierById = useRef(
-    Object.fromEntries(tiers.map((t) => [t.id, t])) as Record<string, TierConfig>
+  // Map corners to tier IDs
+  const cornerToTier = useRef(
+    Object.fromEntries(tiers.map((t) => [SIDE_TO_CORNER[t.side], t.id])) as Record<string, string>
   ).current;
 
   const getZoneFromOffset = useCallback((dx: number, dy: number): string | null => {
-    const absDx = Math.abs(dx);
-    const absDy = Math.abs(dy);
-    if (absDx < DRAG_THRESHOLD && absDy < DRAG_THRESHOLD) return null;
-    if (absDx > absDy) return dx > 0 ? sideToTier['right'] : sideToTier['left'];
-    return dy < 0 ? sideToTier['top'] : sideToTier['bottom'];
-  }, [sideToTier]);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < DRAG_THRESHOLD) return null;
+    // Determine which corner quadrant: top-left, top-right, bottom-left, bottom-right
+    const corner = (dy < 0 ? 'top' : 'bottom') + '-' + (dx > 0 ? 'right' : 'left');
+    return cornerToTier[corner] || null;
+  }, [cornerToTier]);
+
+  // Drag threshold before we start visual dragging (prevents jitter on tap)
+  const MOVE_START = 12;
 
   const handlePointerDown = (item: string, e: React.PointerEvent) => {
     e.preventDefault();
-    setDraggingItem(item);
-    hasMoved.current = false;
+    primeHaptic();
+    pendingItem.current = item;
+    isDragging.current = false;
     startPos.current = { x: e.clientX, y: e.clientY };
     setDragOffset({ x: 0, y: 0 });
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!draggingItem) return;
+    if (!pendingItem.current) return;
     const dx = e.clientX - startPos.current.x;
     const dy = e.clientY - startPos.current.y;
-    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) hasMoved.current = true;
+
+    // Only start dragging after crossing movement threshold
+    if (!isDragging.current) {
+      if (Math.abs(dx) > MOVE_START || Math.abs(dy) > MOVE_START) {
+        isDragging.current = true;
+        setDraggingItem(pendingItem.current);
+        // Show definition while dragging
+        if (pendingItem.current && SUBCATEGORY_DEFINITIONS[pendingItem.current]) {
+          setShowDef(pendingItem.current);
+        }
+      } else {
+        return; // Not dragging yet, don't move chip
+      }
+    }
+
     setDragOffset({ x: dx, y: dy });
-    setActiveZone(getZoneFromOffset(dx, dy));
+    const zone = getZoneFromOffset(dx, dy);
+    if (zone !== lastZone.current) {
+      lastZone.current = zone;
+      if (zone) triggerHaptic('light');
+    }
+    setActiveZone(zone);
   };
 
   const handlePointerUp = () => {
-    if (!draggingItem) return;
-    if (activeZone) {
+    const item = pendingItem.current;
+    if (!item) return;
+
+    if (isDragging.current && activeZone) {
+      // Completed a drag into a zone
+      triggerHaptic('medium');
+      setUndoStack((prev) => [...prev, item]);
       setRatings((prev) => {
         const next = new Map(prev);
-        next.set(draggingItem, activeZone);
+        next.set(item, activeZone);
         return next;
       });
-    } else if (!hasMoved.current) {
-      // It was a tap, not a drag — show definition
-      const defItem = draggingItem;
-      setDraggingItem(null);
-      setDragOffset({ x: 0, y: 0 });
-      setActiveZone(null);
-      if (SUBCATEGORY_DEFINITIONS[defItem]) {
-        setShowDef(defItem);
+    } else if (!isDragging.current) {
+      // It was a tap — show definition
+      if (SUBCATEGORY_DEFINITIONS[item]) {
+        setShowDef(item);
       }
-      return;
     }
+
+    pendingItem.current = null;
+    isDragging.current = false;
     setDraggingItem(null);
     setDragOffset({ x: 0, y: 0 });
     setActiveZone(null);
+    setShowDef(null);
+    lastZone.current = null;
   };
 
   const handleNext = () => {
@@ -137,27 +300,32 @@ export default function ChipPool({
     onComplete(result);
   };
 
+  const handleUndo = () => {
+    if (undoStack.length === 0) return;
+    const lastItem = undoStack[undoStack.length - 1];
+    setUndoStack((prev) => prev.slice(0, -1));
+    setRatings((prev) => {
+      const next = new Map(prev);
+      next.delete(lastItem);
+      return next;
+    });
+  };
+
   const ratedCount = ratings.size;
   const unratedItems = items.filter((item) => !ratings.has(item));
-
-  // Get tier config for each side
-  const topTier = tiers.find((t) => t.side === 'top');
-  const bottomTier = tiers.find((t) => t.side === 'bottom');
-  const leftTier = tiers.find((t) => t.side === 'left');
-  const rightTier = tiers.find((t) => t.side === 'right');
 
   return (
     <div
       className="flex-1 flex flex-col min-h-dvh select-none"
-      style={{ WebkitUserSelect: 'none' }}
+      style={{ WebkitUserSelect: 'none', background: 'var(--background)' }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
-      {/* Definition tooltip */}
-      {showDef && <DefinitionTooltip label={showDef} onClose={() => setShowDef(null)} />}
+      {/* Definition tooltip (tap-to-close only, rendered elsewhere for drag) */}
+      {showDef && !draggingItem && <DefinitionTooltip label={showDef} onClose={() => setShowDef(null)} />}
 
       {/* Header */}
-      <div className="px-5 pt-5 pb-2">
+      <div className="px-5 pt-5 pb-2 relative z-40">
         <div className="flex items-center justify-between mb-1">
           <button onClick={onBack} className="text-sm opacity-60 hover:opacity-100 transition-opacity">
             &larr;
@@ -172,7 +340,7 @@ export default function ChipPool({
             onClick={handleNext}
             className="text-sm opacity-60 hover:opacity-100 transition-opacity"
           >
-            Next &rarr;
+            {ratedCount > 0 ? 'Next' : 'Skip'} &rarr;
           </button>
         </div>
         {/* Progress */}
@@ -184,165 +352,140 @@ export default function ChipPool({
         </div>
       </div>
 
-      {/* Edge labels + chip pool */}
-      <div className="relative flex-1 px-3 pt-2 pb-3 overflow-y-auto">
-        {/* Top label */}
-        {topTier && (
+      {/* Full-screen chip area */}
+      <div className="relative flex-1 overflow-hidden">
+        {/* Subtle watercolor wash */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: `radial-gradient(ellipse at 50% 40%, ${categoryColor}12 0%, transparent 70%)`,
+          }}
+        />
+
+        {/* Corner circles */}
+        {tiers.map((tier) => (
+          <CornerCircle
+            key={tier.id}
+            tier={tier}
+            active={activeZone === tier.id}
+            corner={SIDE_TO_CORNER[tier.side]}
+            isDragging={!!draggingItem}
+          />
+        ))}
+
+        {/* Card — hidden during drag */}
+        {!draggingItem && (
           <div
-            className="flex justify-center mb-2 transition-all duration-200"
-            style={{ opacity: activeZone === topTier.id ? 1 : 0.25 }}
+            className="absolute inset-0 flex items-center justify-center z-10"
           >
-            <span
-              className="text-xs font-medium px-4 py-1.5 rounded-full transition-all duration-200"
-              style={{
-                background: activeZone === topTier.id ? topTier.color + '25' : 'transparent',
-                color: activeZone === topTier.id ? topTier.color : undefined,
-                transform: activeZone === topTier.id ? 'scale(1.1)' : 'scale(1)',
-              }}
-            >
-              {topTier.label}
-            </span>
-          </div>
-        )}
-
-        {/* Middle row: Left — Chips — Right */}
-        <div className="flex items-start gap-1 flex-1">
-          {/* Left label */}
-          {leftTier && (
-            <div
-              className="flex items-center pt-16 transition-all duration-200 shrink-0"
-              style={{ opacity: activeZone === leftTier.id ? 1 : 0.25, writingMode: 'vertical-lr' }}
-            >
-              <span
-                className="text-xs font-medium px-1.5 py-3 rounded-full transition-all duration-200"
-                style={{
-                  background: activeZone === leftTier.id ? leftTier.color + '25' : 'transparent',
-                  color: activeZone === leftTier.id ? leftTier.color : undefined,
-                  transform: `rotate(180deg) ${activeZone === leftTier.id ? 'scale(1.1)' : 'scale(1)'}`,
-                }}
-              >
-                {leftTier.label}
-              </span>
-            </div>
-          )}
-
-          {/* Chip pool */}
-          <div className="flex-1 flex flex-wrap gap-2 justify-center content-start py-2 px-1">
-            {unratedItems.map((item) => {
-              const isDragging = draggingItem === item;
-              return (
-                <button
-                  key={item}
-                  className="px-3 py-1.5 rounded-full text-sm transition-all duration-200 touch-none"
-                  style={{
-                    background: 'rgba(61,53,50,0.06)',
-                    borderWidth: '1.5px',
-                    borderStyle: 'solid',
-                    borderColor: 'transparent',
-                    color: '#3D3532',
-                    fontWeight: 400,
-                    transform: isDragging
-                      ? `translate(${dragOffset.x}px, ${dragOffset.y}px) scale(1.08)`
-                      : 'translate(0, 0) scale(1)',
-                    zIndex: isDragging ? 50 : 1,
-                    position: 'relative',
-                    opacity: isDragging && activeZone ? 0.7 : 1,
-                    boxShadow: isDragging ? '0 8px 25px rgba(0,0,0,0.15)' : 'none',
-                    WebkitUserSelect: 'none',
-                  }}
-                  onPointerDown={(e) => handlePointerDown(item, e)}
-                >
-                  {item}
-                </button>
-              );
-            })}
-            {unratedItems.length === 0 && (
-              <p className="text-sm opacity-30 py-8">All items sorted — tap Next &rarr;</p>
-            )}
-          </div>
-
-          {/* Right label */}
-          {rightTier && (
-            <div
-              className="flex items-center pt-16 transition-all duration-200 shrink-0"
-              style={{ opacity: activeZone === rightTier.id ? 1 : 0.25, writingMode: 'vertical-lr' }}
-            >
-              <span
-                className="text-xs font-medium px-1.5 py-3 rounded-full transition-all duration-200"
-                style={{
-                  background: activeZone === rightTier.id ? rightTier.color + '25' : 'transparent',
-                  color: activeZone === rightTier.id ? rightTier.color : undefined,
-                  transform: activeZone === rightTier.id ? 'scale(1.1)' : 'scale(1)',
-                }}
-              >
-                {rightTier.label}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Bottom label */}
-        {bottomTier && (
-          <div
-            className="flex justify-center mt-2 transition-all duration-200"
-            style={{ opacity: activeZone === bottomTier.id ? 1 : 0.25 }}
-          >
-            <span
-              className="text-xs font-medium px-4 py-1.5 rounded-full transition-all duration-200"
-              style={{
-                background: activeZone === bottomTier.id ? bottomTier.color + '25' : 'transparent',
-                color: activeZone === bottomTier.id ? bottomTier.color : undefined,
-                transform: activeZone === bottomTier.id ? 'scale(1.1)' : 'scale(1)',
-              }}
-            >
-              {bottomTier.label}
-            </span>
-          </div>
-        )}
-
-        {/* Sorted items summary with undo */}
-        {ratedCount > 0 && (
-          <div className="mt-3 space-y-2 px-1">
-            {tiers.map((tier) => {
-              const tierItems = items.filter((item) => ratings.get(item) === tier.id);
-              if (tierItems.length === 0) return null;
-              return (
-                <div key={tier.id} className="flex flex-wrap gap-1.5 items-center">
-                  <span
-                    className="text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0"
-                    style={{ background: tier.color + '20', color: tier.color }}
+            <div className="relative" style={{ width: '85%', maxWidth: 340 }}>
+              {(() => {
+                const CLUSTER_SIZE = 4;
+                const clusters: string[][] = [];
+                for (let i = 0; i < unratedItems.length; i += CLUSTER_SIZE) {
+                  clusters.push(unratedItems.slice(i, i + CLUSTER_SIZE));
+                }
+                if (clusters.length === 0) {
+                  return <p className="text-sm opacity-30 py-8 text-center">All items sorted — tap Next &rarr;</p>;
+                }
+                const topCluster = clusters[0];
+                return (
+                  <div
+                    className="rounded-2xl px-5 py-4 flex flex-wrap gap-2 justify-center"
+                    style={{
+                      background: `linear-gradient(135deg, ${categoryColor}15, ${categoryColor}08)`,
+                      border: `1.5px solid ${categoryColor}20`,
+                      boxShadow: `0 2px 12px ${categoryColor}10`,
+                    }}
                   >
-                    {tier.label}
-                  </span>
-                  {tierItems.map((item) => (
-                    <button
-                      key={item}
-                      onClick={() => {
-                        setRatings((prev) => {
-                          const next = new Map(prev);
-                          next.delete(item);
-                          return next;
-                        });
-                      }}
-                      className="text-xs px-2 py-0.5 rounded-full transition-all hover:opacity-70 active:scale-95"
-                      style={{ background: tier.color + '15', color: tier.color }}
-                      title="Tap to undo"
-                    >
-                      {item} &times;
-                    </button>
-                  ))}
+                    {topCluster.map((item) => (
+                      <button
+                        key={item}
+                        className="px-3.5 py-1.5 rounded-full text-sm touch-none"
+                        style={{
+                          background: categoryColor + '14',
+                          borderWidth: '1px',
+                          borderStyle: 'solid',
+                          borderColor: categoryColor + '18',
+                          color: 'rgba(0,0,0,0.7)',
+                          fontWeight: 500,
+                          WebkitUserSelect: 'none',
+                        }}
+                        onPointerDown={(e) => handlePointerDown(item, e)}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* Definition shown below card when tapped (not dragging) */}
+              {showDef && SUBCATEGORY_DEFINITIONS[showDef] && (
+                <div className="mt-3 px-4 py-2.5 rounded-xl bg-white/90 shadow-lg border border-black/5 backdrop-blur-sm">
+                  <p className="text-xs font-semibold mb-0.5" style={{ color: 'rgba(0,0,0,0.7)' }}>{showDef}</p>
+                  <p className="text-xs leading-relaxed" style={{ color: 'rgba(0,0,0,0.45)' }}>{SUBCATEGORY_DEFINITIONS[showDef]}</p>
                 </div>
-              );
-            })}
+              )}
+            </div>
           </div>
+        )}
+
+        {/* During drag: floating chip + definition in center */}
+        {draggingItem && (
+          <>
+            {/* Definition takes the center spot */}
+            {showDef && SUBCATEGORY_DEFINITIONS[showDef] && (
+              <div className="absolute inset-0 z-15 flex items-center justify-center pointer-events-none">
+                <div
+                  className="px-5 py-3 rounded-2xl bg-white/90 shadow-lg border border-black/5 backdrop-blur-sm"
+                  style={{ width: '80%', maxWidth: 300 }}
+                >
+                  <p className="text-sm font-semibold mb-1" style={{ color: 'rgba(0,0,0,0.7)' }}>{showDef}</p>
+                  <p className="text-xs leading-relaxed" style={{ color: 'rgba(0,0,0,0.45)' }}>{SUBCATEGORY_DEFINITIONS[showDef]}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Dragged chip — big, bold, white background */}
+            <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center">
+              <div
+                className="px-5 py-2.5 rounded-full text-base font-semibold"
+                style={{
+                  background: 'rgba(255,255,255,0.95)',
+                  border: `2px solid ${categoryColor}60`,
+                  color: 'rgba(0,0,0,0.75)',
+                  transform: `translate(${dragOffset.x}px, ${dragOffset.y}px) scale(1.15)`,
+                  boxShadow: `0 8px 30px rgba(0,0,0,0.12), 0 4px 15px ${categoryColor}30`,
+                }}
+              >
+                {draggingItem}
+              </div>
+            </div>
+          </>
         )}
       </div>
 
-      {/* Subtle hint at bottom */}
-      <div className="px-5 pb-4">
+      {/* Bottom bar */}
+      <div className="px-5 pb-4 relative z-40 flex items-center justify-between">
+        {undoStack.length > 0 ? (
+          <button
+            onClick={handleUndo}
+            className="flex items-center gap-1 text-xs opacity-40 hover:opacity-70 transition-opacity"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="1 4 1 10 7 10" />
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+            </svg>
+            undo
+          </button>
+        ) : (
+          <div className="w-10" />
+        )}
         <p className="text-xs opacity-25 text-center">
-          {ratedCount > 0 ? `${ratedCount} rated · tap to see definition` : 'drag to edges · tap for definition'}
+          {ratedCount > 0 ? `${ratedCount} of ${items.length} sorted` : 'drag to edges · tap for definition'}
         </p>
+        <div className="w-10" />
       </div>
     </div>
   );

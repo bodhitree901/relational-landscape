@@ -104,6 +104,7 @@ export interface ProfileSnapshot {
   name: string;
   color: string;
   emoji: string;
+  connectionName?: string; // The target person's name (e.g., "Gus" when Bodhi shares)
   categories: {
     categoryId: string;
     ratings: { subcategory: string; tier: string }[];

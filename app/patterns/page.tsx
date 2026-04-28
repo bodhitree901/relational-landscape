@@ -5,224 +5,118 @@ import Link from 'next/link';
 import { Connection, Tier } from '../lib/types';
 import { getConnections } from '../lib/storage';
 import { DEFAULT_CATEGORIES } from '../lib/categories';
+import { MENU_TIER_COLORS, type MenuTier } from '../lib/menu-categories';
 import { ConnectionCircle } from '../components/ColorPicker';
 
-interface SubcategoryCount {
-  subcategory: string;
-  categoryId: string;
-  connections: { id: string; name: string; color: string; tier: Tier }[];
-}
+const PILL_LABELS: Record<string, string> = {
+  'must-have': 'Actively Want',
+  'open': 'Open To',
+  'maybe': 'Not Sure',
+  'off-limits': 'Not Relevant',
+};
 
-function getSubcategoryCounts(connections: Connection[]): SubcategoryCount[] {
-  const map = new Map<string, SubcategoryCount>();
+const TIER_COLORS_DARK: Record<string, string> = {
+  'must-have': '#007A6B',
+  'open': '#5BA84D',
+  'maybe': '#B8A520',
+  'off-limits': '#D47020',
+};
 
-  for (const conn of connections) {
-    for (const cat of conn.categories) {
-      for (const rating of cat.ratings) {
-        const key = rating.subcategory;
-        if (!map.has(key)) {
-          map.set(key, { subcategory: key, categoryId: cat.categoryId, connections: [] });
-        }
-        map.get(key)!.connections.push({
-          id: conn.id,
-          name: conn.name,
-          color: conn.color || conn.emoji || '#C5A3CF',
-          tier: rating.tier,
-        });
-      }
-    }
-  }
-
-  return Array.from(map.values()).sort((a, b) => b.connections.length - a.connections.length);
-}
-
-// Find pairs/groups of connections that share multiple subcategories within a category
-interface OverlapCluster {
-  categoryId: string;
-  categoryName: string;
-  categoryColor: string;
-  connections: { id: string; name: string; color: string }[];
-  sharedSubs: string[];
-}
-
-function findOverlapClusters(connections: Connection[]): OverlapCluster[] {
-  const clusters: OverlapCluster[] = [];
-
-  for (const cat of DEFAULT_CATEGORIES) {
-    // Build a map: connection id -> set of subcategories in this category
-    const connSubs = new Map<string, { conn: Connection; subs: Set<string> }>();
-
-    for (const conn of connections) {
-      const catRatings = conn.categories.find((c) => c.categoryId === cat.id);
-      if (catRatings && catRatings.ratings.length > 0) {
-        connSubs.set(conn.id, {
-          conn,
-          subs: new Set(catRatings.ratings.map((r) => r.subcategory)),
-        });
-      }
-    }
-
-    // Find all pairs with 2+ shared subcategories
-    const entries = Array.from(connSubs.entries());
-    const pairsSeen = new Set<string>();
-
-    for (let i = 0; i < entries.length; i++) {
-      for (let j = i + 1; j < entries.length; j++) {
-        const [idA, a] = entries[i];
-        const [idB, b] = entries[j];
-        const shared = [...a.subs].filter((s) => b.subs.has(s));
-
-        if (shared.length >= 2) {
-          const pairKey = [idA, idB].sort().join('-');
-          if (!pairsSeen.has(pairKey)) {
-            pairsSeen.add(pairKey);
-            clusters.push({
-              categoryId: cat.id,
-              categoryName: cat.name,
-              categoryColor: cat.color,
-              connections: [
-                { id: a.conn.id, name: a.conn.name, color: a.conn.color || a.conn.emoji || '#C5A3CF' },
-                { id: b.conn.id, name: b.conn.name, color: b.conn.color || b.conn.emoji || '#C5A3CF' },
-              ],
-              sharedSubs: shared,
-            });
-          }
+// Load My Map from localStorage — deduplicated by item name
+function getMyMap(): { item: string; tier: MenuTier; categoryId: string }[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const data = localStorage.getItem('rl_my_menu');
+    if (!data) return [];
+    const profiles: { categoryId: string; ratings: { item: string; tier: MenuTier }[] }[] = JSON.parse(data);
+    const seen = new Set<string>();
+    const items: { item: string; tier: MenuTier; categoryId: string }[] = [];
+    for (const p of profiles) {
+      for (const r of p.ratings) {
+        if (!seen.has(r.item)) {
+          seen.add(r.item);
+          items.push({ item: r.item, tier: r.tier, categoryId: p.categoryId });
         }
       }
     }
-  }
-
-  // Sort by most shared subcategories
-  return clusters.sort((a, b) => b.sharedSubs.length - a.sharedSubs.length);
+    return items;
+  } catch { return []; }
 }
 
-// Meta summary of how you relate across all connections
-function generateMetaSummary(connections: Connection[]): string {
-  if (connections.length === 0) return '';
-
-  const allRatings = connections.flatMap((c) => c.categories.flatMap((cat) => cat.ratings));
-  const coreCount = allRatings.filter((r) => r.tier === 'core').length;
-  const rhythmCount = allRatings.filter((r) => r.tier === 'rhythm').length;
-
-  // What categories show up most across core/rhythm
-  const catPresence = new Map<string, number>();
-  for (const conn of connections) {
-    for (const cat of conn.categories) {
-      const coreRhythm = cat.ratings.filter((r) => r.tier === 'core' || r.tier === 'rhythm');
-      if (coreRhythm.length > 0) {
-        catPresence.set(cat.categoryId, (catPresence.get(cat.categoryId) || 0) + 1);
-      }
-    }
-  }
-
-  const topCats = [...catPresence.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([id]) => {
-      const cat = DEFAULT_CATEGORIES.find((c) => c.id === id);
-      return cat?.name || id;
-    });
-
-  // Most common core subcategories
-  const coreSubs = new Map<string, number>();
-  for (const conn of connections) {
-    for (const cat of conn.categories) {
-      for (const r of cat.ratings) {
-        if (r.tier === 'core') {
-          coreSubs.set(r.subcategory, (coreSubs.get(r.subcategory) || 0) + 1);
-        }
-      }
-    }
-  }
-
-  const topCoreSubs = [...coreSubs.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([sub]) => sub);
-
-  // How many categories does the average connection span?
-  const avgCats = connections.reduce((sum, conn) => {
-    return sum + conn.categories.filter((c) => c.ratings.length > 0).length;
-  }, 0) / connections.length;
-
-  const paragraphs: string[] = [];
-
-  if (topCats.length > 0) {
-    paragraphs.push(
-      `Across your ${connections.length} connection${connections.length > 1 ? 's' : ''}, the areas that show up most are ${topCats.join(', ')}. These seem to be the dimensions where your relational world is richest.`
-    );
-  }
-
-  if (topCoreSubs.length > 0) {
-    paragraphs.push(
-      `The threads you most often name as core are ${topCoreSubs.join(', ')} — these may be the things you seek or naturally cultivate in your closest relationships.`
-    );
-  }
-
-  if (avgCats >= 4) {
-    paragraphs.push(
-      `Your connections tend to be multi-dimensional — spanning ${Math.round(avgCats)} categories on average. You seem to build relationships that touch many aspects of life, not just one.`
-    );
-  } else if (avgCats <= 2) {
-    paragraphs.push(
-      `Your connections tend to be focused — averaging about ${Math.round(avgCats)} ${Math.round(avgCats) === 1 ? 'category' : 'categories'} each. There's a clarity in that — you seem to know what each relationship is about.`
-    );
-  }
-
-  if (coreCount > rhythmCount * 2) {
-    paragraphs.push(
-      `You tend to name things as core more than rhythm — you seem drawn to intensity and clarity about what matters, rather than a slow-burn approach.`
-    );
-  } else if (rhythmCount > coreCount * 2) {
-    paragraphs.push(
-      `You lean more toward rhythm than core — you seem to value the steady presence of things over dramatic declarations. Consistency is your love language.`
-    );
-  }
-
-  return paragraphs.join(' ');
-}
 
 export default function PatternsPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
-  const [expandedSub, setExpandedSub] = useState<string | null>(null);
+  const [expandedUnmetCat, setExpandedUnmetCat] = useState<string | null>(null);
+  const [expandedCoverageCat, setExpandedCoverageCat] = useState<string | null>(null);
+  const [expandedUnmet, setExpandedUnmet] = useState<string | null>(null);
+  const [myMapItems, setMyMapItems] = useState<{ item: string; tier: MenuTier; categoryId: string }[]>([]);
 
   useEffect(() => {
     setConnections(getConnections());
+    setMyMapItems(getMyMap());
   }, []);
 
   if (connections.length === 0) {
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center px-8">
         <p className="text-lg opacity-40 mb-4">No connections yet</p>
-        <Link
-          href="/new"
-          className="px-6 py-3 rounded-2xl text-white font-medium"
-          style={{ background: 'var(--peach)' }}
-        >
+        <Link href="/new" className="px-6 py-3 rounded-2xl text-white font-medium" style={{ background: 'var(--peach)' }}>
           Create your first connection
         </Link>
       </div>
     );
   }
 
-  const subcategoryCounts = getSubcategoryCounts(connections);
-  const overlapClusters = findOverlapClusters(connections);
-  const metaSummary = generateMetaSummary(connections);
+  const hasMyMap = myMapItems.length > 0;
 
-  // Category presence across connections
-  const categoryPresence = DEFAULT_CATEGORIES.map((cat) => {
-    const count = connections.filter((conn) =>
-      conn.categories.some((c) => c.categoryId === cat.id && c.ratings.length > 0)
-    ).length;
-    return { ...cat, count, percentage: Math.round((count / connections.length) * 100) };
-  }).sort((a, b) => b.count - a.count);
+  // Build a lookup: item → which connections cover it and at what tier
+  const connectionCoverage = new Map<string, { connName: string; connId: string; connColor: string; tier: Tier }[]>();
+  for (const conn of connections) {
+    for (const cat of conn.categories) {
+      for (const r of cat.ratings) {
+        if (!connectionCoverage.has(r.subcategory)) connectionCoverage.set(r.subcategory, []);
+        connectionCoverage.get(r.subcategory)!.push({
+          connName: conn.name, connId: conn.id,
+          connColor: conn.color || conn.emoji || '#C5A3CF', tier: r.tier,
+        });
+      }
+    }
+  }
+
+  // --- UNMET WANTS (#3): Things you Actively Want that no connection fulfills ---
+  const myWants = myMapItems.filter((i) => i.tier === 'must-have' || i.tier === 'open');
+  const unmetWants = myWants.filter((want) => {
+    const coverage = connectionCoverage.get(want.item);
+    if (!coverage) return true; // no connection has it at all
+    // Unmet if no connection rates it positively
+    return !coverage.some((c) => c.tier === 'must-have' || c.tier === 'open');
+  });
+
+  // Group unmet wants by category
+  const unmetByCategory = new Map<string, typeof unmetWants>();
+  for (const u of unmetWants) {
+    if (!unmetByCategory.has(u.categoryId)) unmetByCategory.set(u.categoryId, []);
+    unmetByCategory.get(u.categoryId)!.push(u);
+  }
+
+  // --- COVERAGE MAP (#6): For each want, which connections cover it ---
+  const coveredWants = myWants.filter((want) => {
+    const coverage = connectionCoverage.get(want.item);
+    return coverage && coverage.some((c) => c.tier === 'must-have' || c.tier === 'open');
+  });
+
+  // Group covered wants by category
+  const coveredByCategory = new Map<string, typeof coveredWants>();
+  for (const c of coveredWants) {
+    if (!coveredByCategory.has(c.categoryId)) coveredByCategory.set(c.categoryId, []);
+    coveredByCategory.get(c.categoryId)!.push(c);
+  }
+
 
   return (
     <div className="page-enter min-h-dvh pb-8">
       <div className="px-5 pt-5 pb-3">
-        <Link href="/" className="text-sm opacity-60 hover:opacity-100 transition-opacity">
-          &larr; Home
-        </Link>
+        <Link href="/" className="text-sm opacity-60 hover:opacity-100 transition-opacity">&larr; Home</Link>
       </div>
 
       <div className="px-5 pt-2 pb-6">
@@ -230,149 +124,163 @@ export default function PatternsPage() {
         <p className="text-sm opacity-50">Across {connections.length} connection{connections.length !== 1 ? 's' : ''}</p>
       </div>
 
-      {/* Meta summary */}
-      {metaSummary && (
-        <div className="mx-5 watercolor-card watercolor-lavender p-5 mb-6">
-          <h2 className="text-sm font-medium opacity-50 mb-3 uppercase tracking-wide">
-            How You Relate
-          </h2>
-          <p className="text-sm leading-relaxed opacity-70">{metaSummary}</p>
-        </div>
-      )}
-
-      {/* Most common subcategories — tap to expand */}
-      <div className="mx-5 watercolor-card bg-white/50 p-5 mb-6">
-        <h2 className="text-sm font-medium opacity-50 mb-4 uppercase tracking-wide">
-          Most Common Threads
-        </h2>
-        <div className="space-y-3">
-          {subcategoryCounts.slice(0, 12).map((item) => {
-            const catDef = DEFAULT_CATEGORIES.find((c) => c.id === item.categoryId);
-            const isExpanded = expandedSub === item.subcategory;
-            return (
-              <div key={item.subcategory}>
-                <button
-                  onClick={() => setExpandedSub(isExpanded ? null : item.subcategory)}
-                  className="w-full text-left"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium">{item.subcategory}</span>
-                    <span className="text-xs opacity-40">
-                      {item.connections.length} connection{item.connections.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <div className="flex gap-1 items-center">
-                    <div className="flex-1 h-2 rounded-full bg-black/5 overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${(item.connections.length / connections.length) * 100}%`,
-                          background: catDef?.color || '#ccc',
-                        }}
-                      />
-                    </div>
-                    <div className="flex -space-x-1.5 ml-2">
-                      {item.connections.slice(0, 4).map((c, i) => (
-                        <div key={i} title={c.name}>
-                          <ConnectionCircle color={c.color} size={16} />
-                        </div>
-                      ))}
-                      {item.connections.length > 4 && (
-                        <span className="text-xs opacity-40 ml-1">+{item.connections.length - 4}</span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-
-                {/* Expanded: show who */}
-                {isExpanded && (
-                  <div className="mt-2 ml-1 flex flex-wrap gap-2 animate-tooltip">
-                    {item.connections.map((c) => (
-                      <Link
-                        key={c.id}
-                        href={`/connection/${c.id}`}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/70 text-xs hover:bg-white/90 transition-colors border border-black/5"
-                      >
-                        <ConnectionCircle color={c.color} size={14} />
-                        <span>{c.name}</span>
-                        <span className="opacity-30 text-[10px]">
-                          {c.tier === 'core' ? '●●●' : c.tier === 'rhythm' ? '●●' : c.tier === 'sometimes' ? '●' : '○'}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Category presence */}
-      <div className="mx-5 watercolor-card bg-white/50 p-5 mb-6">
-        <h2 className="text-sm font-medium opacity-50 mb-4 uppercase tracking-wide">
-          Category Presence
-        </h2>
-        <div className="space-y-3">
-          {categoryPresence.map((cat) => (
-            <div key={cat.id} className="flex items-center gap-3">
-              <div
-                className="w-3 h-3 rounded-full shrink-0"
-                style={{ background: cat.color }}
-              />
-              <span className="text-sm flex-1">{cat.name}</span>
-              <span className="text-xs opacity-40">{cat.percentage}%</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Overlap clusters — who shares multiple subcategories in a category */}
-      {overlapClusters.length > 0 && (
+      {/* UNMET WANTS — accordion cards per category */}
+      {hasMyMap && unmetWants.length > 0 && (
         <div className="mx-5 mb-6">
-          <h2 className="text-sm font-medium opacity-50 mb-4 uppercase tracking-wide px-1">
-            Shared Dimensions
-          </h2>
+          <div className="px-1 mb-3">
+            <h2 className="text-lg font-bold uppercase tracking-wide" style={{ color: '#D47020' }}>
+              Unmet Wants
+            </h2>
+            <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.4)' }}>
+              {unmetWants.length} thing{unmetWants.length !== 1 ? 's' : ''} you want that no connection covers
+            </p>
+          </div>
           <div className="space-y-3">
-            {overlapClusters.map((cluster, idx) => {
-              const catDef = DEFAULT_CATEGORIES.find((c) => c.id === cluster.categoryId);
+            {[...unmetByCategory.entries()].map(([catId, items]) => {
+              const catDef = DEFAULT_CATEGORIES.find((c) => c.id === catId);
+              if (!catDef) return null;
+              const isExpanded = expandedUnmetCat === catId;
               return (
-                <div
-                  key={idx}
-                  className={`watercolor-card p-4 ${catDef?.watercolorClass || ''}`}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    {cluster.connections.map((conn) => (
-                      <Link
-                        key={conn.id}
-                        href={`/connection/${conn.id}`}
-                        className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-                      >
-                        <ConnectionCircle color={conn.color} size={20} />
-                        <span className="text-sm font-medium">{conn.name}</span>
-                      </Link>
-                    ))}
-                  </div>
-                  <p className="text-xs opacity-40 mb-2">
-                    share {cluster.sharedSubs.length} in {cluster.categoryName}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {cluster.sharedSubs.map((sub) => (
-                      <span
-                        key={sub}
-                        className="text-xs px-2.5 py-1 rounded-full"
-                        style={{ background: `${cluster.categoryColor}20` }}
-                      >
-                        {sub}
+                <div key={catId} className="rounded-2xl overflow-hidden">
+                  <button
+                    onClick={() => setExpandedUnmetCat(isExpanded ? null : catId)}
+                    className="w-full text-left px-5 py-4 transition-all active:scale-[0.99]"
+                    style={{ background: '#FF9448' }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-extrabold uppercase tracking-wide" style={{ color: 'rgba(0,0,0,0.75)' }}>
+                          {catDef.name}
+                        </h3>
+                        <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.4)' }}>
+                          {items.length} unmet want{items.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <span className="text-sm" style={{ color: 'rgba(0,0,0,0.3)' }}>
+                        {isExpanded ? '▲' : '▼'}
                       </span>
-                    ))}
-                  </div>
+                    </div>
+                  </button>
+                  {isExpanded && (
+                    <div className="bg-white border-x border-b border-black/5 rounded-b-2xl" style={{ animation: 'tooltip-enter 0.2s ease-out' }}>
+                      <div className="px-4 py-3 space-y-0.5">
+                        {items.map((item) => (
+                          <div key={item.item} className="flex items-center gap-2.5 py-2 px-2 rounded-lg">
+                            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: '#D47020' }} />
+                            <span className="flex-1 text-sm" style={{ color: 'rgba(0,0,0,0.7)' }}>{item.item}</span>
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0"
+                              style={{ background: `${MENU_TIER_COLORS[item.tier]}25`, color: TIER_COLORS_DARK[item.tier] }}>
+                              You: {PILL_LABELS[item.tier]}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         </div>
       )}
+
+      {/* COVERAGE MAP — accordion cards per category */}
+      {hasMyMap && coveredWants.length > 0 && (
+        <div className="mx-5 mb-6">
+          <div className="px-1 mb-3">
+            <h2 className="text-lg font-bold uppercase tracking-wide" style={{ color: '#007A6B' }}>
+              Coverage Map
+            </h2>
+            <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.4)' }}>
+              Who covers what you want across your connections
+            </p>
+          </div>
+          <div className="space-y-3">
+            {[...coveredByCategory.entries()].map(([catId, items]) => {
+              const catDef = DEFAULT_CATEGORIES.find((c) => c.id === catId);
+              if (!catDef) return null;
+              const isExpanded = expandedCoverageCat === catId;
+              return (
+                <div key={catId} className="rounded-2xl overflow-hidden">
+                  <button
+                    onClick={() => setExpandedCoverageCat(isExpanded ? null : catId)}
+                    className="w-full text-left px-5 py-4 transition-all active:scale-[0.99]"
+                    style={{ background: '#009483' }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-extrabold uppercase tracking-wide" style={{ color: 'rgba(0,0,0,0.75)' }}>
+                          {catDef.name}
+                        </h3>
+                        <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.4)' }}>
+                          {items.length} covered want{items.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <span className="text-sm" style={{ color: 'rgba(0,0,0,0.3)' }}>
+                        {isExpanded ? '▲' : '▼'}
+                      </span>
+                    </div>
+                  </button>
+                  {isExpanded && (
+                    <div className="bg-white border-x border-b border-black/5 rounded-b-2xl" style={{ animation: 'tooltip-enter 0.2s ease-out' }}>
+                      <div className="px-4 py-3 space-y-0.5">
+                        {items.map((want) => {
+                          const coveringConns = (connectionCoverage.get(want.item) || [])
+                            .filter((c) => c.tier === 'must-have' || c.tier === 'open');
+                          const isItemExpanded = expandedUnmet === want.item;
+                          return (
+                            <div key={want.item}>
+                              <button
+                                onClick={() => setExpandedUnmet(isItemExpanded ? null : want.item)}
+                                className="w-full flex items-center gap-2.5 py-2 px-2 rounded-lg transition-all active:scale-[0.99]"
+                              >
+                                <div className="w-2 h-2 rounded-full shrink-0" style={{ background: '#007A6B' }} />
+                                <span className="flex-1 text-left text-sm" style={{ color: 'rgba(0,0,0,0.7)' }}>
+                                  {want.item}
+                                </span>
+                                <div className="flex -space-x-1.5 shrink-0">
+                                  {coveringConns.slice(0, 4).map((c, i) => (
+                                    <div key={i}><ConnectionCircle color={c.connColor} size={16} /></div>
+                                  ))}
+                                  {coveringConns.length > 4 && (
+                                    <span className="text-xs opacity-40 ml-1">+{coveringConns.length - 4}</span>
+                                  )}
+                                </div>
+                              </button>
+                              {isItemExpanded && (
+                                <div className="ml-6 mb-2 flex flex-wrap gap-1.5" style={{ animation: 'tooltip-enter 0.15s ease-out' }}>
+                                  {coveringConns.map((c, i) => (
+                                    <Link key={i} href={`/connection/${c.connId}`}
+                                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/70 text-xs border border-black/5">
+                                      <ConnectionCircle color={c.connColor} size={14} />
+                                      <span>{c.connName}</span>
+                                    </Link>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* No My Map notice */}
+      {!hasMyMap && (
+        <div className="mx-5 mb-6 watercolor-card bg-white/50 p-5">
+          <p className="text-sm opacity-50 mb-2">Complete your personal map to see blind spots and coverage analysis.</p>
+          <Link href="/menu" className="text-sm font-medium" style={{ color: '#007A6B' }}>
+            Create My Map →
+          </Link>
+        </div>
+      )}
+
     </div>
   );
 }

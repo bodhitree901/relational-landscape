@@ -7,12 +7,12 @@ import { ConnectionCircle } from './ColorPicker';
 function getTopItems(connection: Connection): { label: string; tier: Tier }[] {
   return connection.categories
     .flatMap((c) => c.ratings)
-    .filter((r) => r.tier === 'core' || r.tier === 'rhythm')
+    .filter((r) => r.tier === 'must-have' || r.tier === 'open')
     .slice(0, 5)
     .map((r) => ({ label: r.subcategory, tier: r.tier }));
 }
 
-export default function ConnectionCard({ connection }: { connection: Connection }) {
+export default function ConnectionCard({ connection, onDelete, badgeText }: { connection: Connection; onDelete?: () => void; badgeText?: string }) {
   const topItems = getTopItems(connection);
   const color = connection.color || connection.emoji || '#C5A3CF';
 
@@ -25,6 +25,11 @@ export default function ConnectionCard({ connection }: { connection: Connection 
         <div className="flex items-center gap-3 mb-3">
           <ConnectionCircle color={color} size={36} />
           <h3 className="text-lg font-semibold">{connection.name}</h3>
+          {badgeText && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full text-white font-medium animate-pulse" style={{ background: '#009483' }}>
+              {badgeText}
+            </span>
+          )}
         </div>
         {topItems.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
@@ -33,7 +38,7 @@ export default function ConnectionCard({ connection }: { connection: Connection 
                 key={item.label}
                 className="text-xs px-2.5 py-1 rounded-full"
                 style={{
-                  background: item.tier === 'core' ? 'rgba(244,168,154,0.2)' : 'rgba(197,163,207,0.2)',
+                  background: item.tier === 'must-have' ? 'rgba(232,131,138,0.2)' : 'rgba(137,207,240,0.2)',
                 }}
               >
                 {item.label}
@@ -50,17 +55,32 @@ export default function ConnectionCard({ connection }: { connection: Connection 
         )}
       </Link>
 
-      {/* Edit button */}
-      <Link
-        href={`/edit/${connection.id}`}
-        className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center opacity-30 hover:opacity-60 transition-opacity"
-        style={{ background: `${color}20` }}
-        title="Edit"
-      >
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M8.5 2.5l3 3M1.5 9.5l-0.5 3.5 3.5-0.5 7.5-7.5-3-3-7.5 7.5z" />
-        </svg>
-      </Link>
+      {/* Edit & Delete buttons */}
+      <div className="absolute top-4 right-4 flex flex-col gap-2">
+        <Link
+          href={`/edit/${connection.id}`}
+          className="w-8 h-8 rounded-full flex items-center justify-center opacity-30 hover:opacity-60 transition-opacity"
+          style={{ background: `${color}20` }}
+          title="Edit"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8.5 2.5l3 3M1.5 9.5l-0.5 3.5 3.5-0.5 7.5-7.5-3-3-7.5 7.5z" />
+          </svg>
+        </Link>
+        {onDelete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            className="w-8 h-8 rounded-full flex items-center justify-center opacity-20 hover:opacity-50 transition-opacity"
+            style={{ background: 'rgba(200,80,80,0.1)' }}
+            title="Delete"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
