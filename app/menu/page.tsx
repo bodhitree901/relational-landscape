@@ -10,11 +10,8 @@ import { SUBCATEGORY_DEFINITIONS } from '../lib/definitions';
 const STORAGE_KEY = 'rl_my_menu';
 const NAME_KEY = 'rl_my_name';
 
-// Tones first — sets the relational context before diving into logistics
-const SWIPE_CATEGORIES = [
-  ...MENU_CATEGORIES.filter((c) => c.id === 'tones'),
-  ...MENU_CATEGORIES.filter((c) => c.id !== 'tones'),
-];
+// My Map swipe order — Tones stays last (it's the culminating context)
+const SWIPE_CATEGORIES = MENU_CATEGORIES;
 
 function getStoredMenu(): MenuProfile[] {
   if (typeof window === 'undefined') return [];

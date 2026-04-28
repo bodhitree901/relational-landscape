@@ -95,11 +95,12 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
   };
 
   // Flat (no rotation) text anchored inside each corner
+  // Bottom labels pushed up 28px to clear the nav bar area
   const labelPos: Record<string, React.CSSProperties> = {
-    'top-left':     { top: 10, left: 10, textAlign: 'left' },
-    'top-right':    { top: 10, right: 10, textAlign: 'right' },
-    'bottom-left':  { bottom: 10, left: 10, textAlign: 'left' },
-    'bottom-right': { bottom: 10, right: 10, textAlign: 'right' },
+    'top-left':     { top: 14, left: 14, textAlign: 'left' },
+    'top-right':    { top: 14, right: 14, textAlign: 'right' },
+    'bottom-left':  { bottom: 28, left: 14, textAlign: 'left' },
+    'bottom-right': { bottom: 28, right: 14, textAlign: 'right' },
   };
 
   const origin: Record<string, string> = {
@@ -146,23 +147,26 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
             transition: 'all 0.3s ease-out',
           }}
         >
-          {lines.map((line, i) => (
-            <div
-              key={i}
-              style={{
-                color: 'white',
-                fontWeight: i === lines.length - 1 && tier.label === 'Not Available For' ? 500 : 800,
-                fontSize: active ? 12 : 10,
-                lineHeight: 1.3,
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-                textShadow: '0 1px 5px rgba(0,0,0,0.35)',
-                opacity: i === lines.length - 1 && tier.label === 'Not Available For' ? 0.85 : 1,
-              }}
-            >
-              {line}
-            </div>
-          ))}
+          {lines.map((line, i) => {
+            const isOrLine = i === lines.length - 1 && tier.label === 'Not Available For';
+            return (
+              <div
+                key={i}
+                style={{
+                  color: 'white',
+                  fontWeight: isOrLine ? 500 : 800,
+                  fontSize: isOrLine ? (active ? 11 : 9) : (active ? 14 : 12),
+                  lineHeight: 1.25,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  textShadow: '0 1px 6px rgba(0,0,0,0.4)',
+                  opacity: isOrLine ? 0.8 : 1,
+                }}
+              >
+                {line}
+              </div>
+            );
+          })}
         </div>
       </div>
     </>
