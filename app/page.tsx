@@ -154,45 +154,79 @@ export default function Home() {
       {/* My Map responses banner */}
       {myMapResponses.length > 0 && (
         <div className="px-5 mb-4">
-          {myMapResponses.map((resp) => (
-            <div
-              key={resp.id}
-              className="rounded-2xl px-4 py-3 mb-2 flex items-center justify-between"
-              style={{
-                background: 'linear-gradient(135deg, rgba(129,204,115,0.12), rgba(0,148,131,0.12))',
-                border: '1.5px solid rgba(0,148,131,0.2)',
-              }}
-            >
-              <div>
-                <p className="text-sm font-semibold" style={{ color: '#007A6B' }}>
-                  🗺️ {resp.responder_name} responded to your My Map
-                </p>
-                <p className="text-xs opacity-40 mt-0.5">
-                  {new Date(resp.created_at).toLocaleDateString()}
-                </p>
-              </div>
-              <Link
-                href={`/map-compare/${resp.id}`}
-                onClick={() => markSeen(SEEN_MAP_KEY, resp.id)}
-                className="text-xs px-3 py-1.5 rounded-full text-white font-medium shrink-0 ml-3"
-                style={{ background: '#009483' }}
-              >
-                View →
-              </Link>
+          <div
+            className="rounded-2xl p-4 flex items-center gap-3"
+            style={{
+              background: 'linear-gradient(135deg, #80C9C1, #C5A3CF)',
+              boxShadow: '0 4px 18px rgba(128,201,193,0.4)',
+              border: '2px solid rgba(255,255,255,0.4)',
+            }}
+          >
+            <span className="text-2xl">🗺️</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold" style={{ color: 'rgba(0,0,0,0.75)' }}>
+                {myMapResponses.length} new My Map {myMapResponses.length === 1 ? 'response' : 'responses'}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.45)' }}>
+                {myMapResponses[0].responder_name}{myMapResponses.length > 1 ? ` + ${myMapResponses.length - 1} more` : ''} responded · scroll down to view
+              </p>
             </div>
-          ))}
+          </div>
         </div>
       )}
 
-      {/* Connections list */}
+      {/* Connections list — includes My Map responses as cards */}
       <div className="px-5">
-        {connections.length === 0 ? (
+        {connections.length === 0 && myMapResponses.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-lg opacity-30 mb-2">No connections yet</p>
             <p className="text-sm opacity-20 mb-6">Start mapping the landscape of your relationships</p>
           </div>
         ) : (
           <div className="space-y-3 mb-6">
+            {/* My Map responses — shown as cards in the list */}
+            {myMapResponses.map((resp) => {
+              const gradient = 'linear-gradient(135deg, #80C9C1, #C5A3CF)';
+              return (
+                <Link
+                  key={resp.id}
+                  href={`/map-compare/${resp.id}`}
+                  onClick={() => markSeen(SEEN_MAP_KEY, resp.id)}
+                  className="block watercolor-card bg-white/60 hover:bg-white/80 transition-all p-5"
+                  style={{ boxShadow: '0 4px 18px rgba(0,148,131,0.25), inset 0 -2px 6px rgba(0,148,131,0.1)' }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
+                      style={{
+                        background: gradient,
+                        boxShadow: '0 2px 8px rgba(0,148,131,0.3)',
+                        border: '2px solid rgba(255,255,255,0.5)',
+                      }}
+                    >
+                      {resp.responder_name[0]?.toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-semibold truncate">{resp.responder_name}</h3>
+                        <span
+                          className="text-[9px] px-2 py-0.5 rounded-full text-white font-medium shrink-0"
+                          style={{ background: '#009483' }}
+                        >
+                          My Map
+                        </span>
+                      </div>
+                      <p className="text-xs opacity-40 mt-0.5">
+                        Responded · {new Date(resp.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <span className="text-xs opacity-30">View →</span>
+                  </div>
+                </Link>
+              );
+            })}
+
+            {/* Regular connections */}
             {connections.map((conn) => (
               <ConnectionCard
                 key={conn.id}

@@ -107,7 +107,11 @@ export default function DefaultsComparison({ connection }: DefaultsComparisonPro
         <button
           onClick={() => { setExpanded(!expanded); setPeekItem(null); }}
           className="w-full text-left px-5 py-5 transition-all active:scale-[0.99]"
-          style={{ background: '#FF9448' }}
+          style={{
+            background: 'linear-gradient(135deg, #F4A89A 0%, #C5A3CF 100%)',
+            boxShadow: '0 4px 18px rgba(244,168,154,0.55), inset 0 -2px 6px rgba(244,168,154,0.4)',
+            border: '2px solid rgba(255,255,255,0.5)',
+          }}
         >
           <div className="flex items-center justify-between">
             <div className="flex-1">
