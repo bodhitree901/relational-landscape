@@ -23,7 +23,10 @@ export default function EditConnection() {
   const [categoryRatings, setCategoryRatings] = useState<CategoryRatings[]>([]);
 
   useEffect(() => {
-    setCategories(getCategoriesWithCustom());
+    // Tones first in Edit Connection — sets relational tone before logistics
+    const allCats = getCategoriesWithCustom();
+    const tonesCat = allCats.find((c) => c.id === 'tones');
+    setCategories(tonesCat ? [tonesCat, ...allCats.filter((c) => c.id !== 'tones')] : allCats);
     const c = getConnection(params.id as string);
     if (c) {
       setConnection(c);
