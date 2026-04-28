@@ -257,11 +257,11 @@ export default function MyMenuPage() {
           : null;
       }).filter(Boolean) as { categoryId: string; categoryName: string; categoryColor: string; items: { item: string; isUnrated: boolean }[] }[];
 
-    const TIER_CONFIG: { key: MenuTier; label: string; gradient: string; includeUnrated?: boolean }[] = [
-      { key: 'must-have',  label: "Must Have's",      gradient: 'linear-gradient(135deg, #80C9C1 0%, #95CFA0 100%)' },
-      { key: 'open',       label: 'Open For',          gradient: 'linear-gradient(135deg, #89CFF0 0%, #80C9C1 100%)' },
-      { key: 'maybe',      label: "Maybe's",           gradient: 'linear-gradient(135deg, #F5D06E 0%, #F4A89A 100%)' },
-      { key: 'off-limits', label: 'Not Available For', gradient: 'linear-gradient(135deg, #F4A89A 0%, #C5A3CF 100%)', includeUnrated: true },
+    const TIER_CONFIG: { key: MenuTier; label: string; gradient: string; shadowColor: string; includeUnrated?: boolean }[] = [
+      { key: 'must-have',  label: "Must Have's",      gradient: 'linear-gradient(135deg, #80C9C1 0%, #95CFA0 100%)', shadowColor: '#80C9C1' },
+      { key: 'open',       label: 'Open For',          gradient: 'linear-gradient(135deg, #89CFF0 0%, #80C9C1 100%)', shadowColor: '#89CFF0' },
+      { key: 'maybe',      label: "Maybe's",           gradient: 'linear-gradient(135deg, #F5D06E 0%, #F4A89A 100%)', shadowColor: '#F5D06E' },
+      { key: 'off-limits', label: 'Not Available For', gradient: 'linear-gradient(135deg, #F4A89A 0%, #C5A3CF 100%)', shadowColor: '#F4A89A', includeUnrated: true },
     ];
 
     const toUrlSafeBase64 = (str: string) =>
@@ -321,7 +321,7 @@ export default function MyMenuPage() {
         </div>
 
         <div className="px-5 space-y-3">
-          {TIER_CONFIG.map(({ key, label, gradient, includeUnrated }) => {
+          {TIER_CONFIG.map(({ key, label, gradient, shadowColor, includeUnrated }) => {
             const groups = getTierGroups(key, includeUnrated);
             const totalItems = groups.reduce((sum, g) => sum + g.items.length, 0);
             if (totalItems === 0) return null;
@@ -331,7 +331,11 @@ export default function MyMenuPage() {
                 <button
                   onClick={() => { setExpandedTier(isExp ? null : key); setPeekItem(null); }}
                   className="w-full text-left px-5 py-5 transition-all active:scale-[0.99]"
-                  style={{ background: gradient }}
+                  style={{
+                    background: gradient,
+                    boxShadow: `0 4px 18px ${shadowColor}55, inset 0 -2px 6px ${shadowColor}40`,
+                    border: '2px solid rgba(255,255,255,0.5)',
+                  }}
                 >
                   <div className="flex items-center justify-between">
                     <div>

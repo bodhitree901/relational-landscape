@@ -17,7 +17,10 @@ export default function ConnectionCard({ connection, onDelete, badgeText }: { co
   const color = connection.color || connection.emoji || '#C5A3CF';
 
   return (
-    <div className="watercolor-card bg-white/60 hover:bg-white/80 transition-all relative">
+    <div
+      className="watercolor-card bg-white/60 hover:bg-white/80 transition-all relative"
+      style={{ boxShadow: `0 4px 18px ${color}45, inset 0 -2px 6px ${color}20` }}
+    >
       <Link
         href={`/connection/${connection.id}`}
         className="block p-5 pr-14"
