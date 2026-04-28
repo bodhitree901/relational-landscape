@@ -193,7 +193,7 @@ export default function MapSharePage() {
     const personBProfiles = [...profileMap.entries()].map(([categoryId, ratings]) => ({ categoryId, ratings }));
 
     // If Supabase-backed share, save response and navigate by ID
-    if (sharerData.shareId) {
+    if (sharerData?.shareId) {
       const result = await submitMyMapResponse(sharerData.shareId, myName.trim(), personBProfiles);
       if ('id' in result) {
         router.push(`/map-compare/${result.id}`);
@@ -204,7 +204,7 @@ export default function MapSharePage() {
 
     // Legacy URL-encoded fallback
     const combined = {
-      personA: { name: sharerData.name, profiles: sharerData.profiles },
+      personA: { name: sharerData?.name ?? '', profiles: sharerData?.profiles ?? [] },
       personB: { name: myName.trim(), profiles: personBProfiles },
     };
     const newToken = btoa(encodeURIComponent(JSON.stringify(combined)))
