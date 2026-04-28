@@ -21,7 +21,10 @@ export default function NewConnection() {
   const [categoryRatings, setCategoryRatings] = useState<CategoryRatings[]>([]);
 
   useEffect(() => {
-    setCategories(getCategoriesWithCustom());
+    // Tones first — sets relational context before diving into logistics
+    const allCats = getCategoriesWithCustom();
+    const tonesCat = allCats.find((c) => c.id === 'tones');
+    setCategories(tonesCat ? [tonesCat, ...allCats.filter((c) => c.id !== 'tones')] : allCats);
   }, []);
 
   const totalSteps = categories.length + 1; // categories + name
