@@ -28,7 +28,7 @@ function markSeen(key: string, id: string) {
 export default function Home() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [newResponses, setNewResponses] = useState<Map<string, string>>(new Map());
-  const [myMapResponses, setMyMapResponses] = useState<{ id: string; responder_name: string; created_at: string }[]>([]);
+  const [myMapResponses, setMyMapResponses] = useState<{ id: string; responder_name: string; created_at: string; isNew: boolean }[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const { user } = useAuth();
 
@@ -59,15 +59,14 @@ export default function Home() {
     if (!user) return;
     const seen = getSeenSet(SEEN_MAP_KEY);
     getMyMapResponses(user.id).then((shares) => {
-      const unseen: { id: string; responder_name: string; created_at: string }[] = [];
+      const all: { id: string; responder_name: string; created_at: string; isNew: boolean }[] = [];
       for (const share of shares) {
         for (const resp of share.my_map_responses || []) {
-          if (!seen.has(resp.id)) {
-            unseen.push(resp);
-          }
+          all.push({ ...resp, isNew: !seen.has(resp.id) });
         }
       }
-      setMyMapResponses(unseen);
+      all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setMyMapResponses(all);
     });
   }, [user]);
 
@@ -90,7 +89,7 @@ export default function Home() {
     const sub = subscribeToMyMapResponses(user.id, (responderName, responseId) => {
       showToast(`${responderName} responded to your My Map! 🗺️`);
       setMyMapResponses((prev) => [
-        { id: responseId, responder_name: responderName, created_at: new Date().toISOString() },
+        { id: responseId, responder_name: responderName, created_at: new Date().toISOString(), isNew: true },
         ...prev,
       ]);
     });
@@ -133,22 +132,22 @@ export default function Home() {
       <div className="px-5 flex gap-3 mb-4">
         <Link
           href="/menu"
-          className="flex-1 watercolor-card p-4 text-center text-sm font-medium hover:opacity-80 transition-opacity"
+          className="flex-1 watercolor-card p-6 text-center text-base font-semibold hover:opacity-80 transition-opacity"
           style={{ background: 'linear-gradient(135deg, rgba(244,168,154,0.55), rgba(244,168,154,0.35))', boxShadow: '0 4px 18px rgba(244,168,154,0.45), inset 0 -2px 6px rgba(244,168,154,0.3)' }}
         >
           My Map
         </Link>
         <Link
           href="/patterns"
-          className="flex-1 watercolor-card p-4 text-center text-sm font-medium hover:opacity-80 transition-opacity"
+          className="flex-1 watercolor-card p-6 text-center text-base font-semibold hover:opacity-80 transition-opacity"
           style={{ background: 'linear-gradient(135deg, rgba(197,163,207,0.55), rgba(197,163,207,0.35))', boxShadow: '0 4px 18px rgba(197,163,207,0.45), inset 0 -2px 6px rgba(197,163,207,0.3)' }}
         >
           Patterns
         </Link>
       </div>
 
-      {/* My Map responses banner */}
-      {myMapResponses.length > 0 && (
+      {/* My Map responses banner — only when there are unseen ones */}
+      {myMapResponses.some(r => r.isNew) && (
         <div className="px-5 mb-4">
           <div
             className="rounded-2xl p-4 flex items-center gap-3"
@@ -161,10 +160,10 @@ export default function Home() {
             <span className="text-2xl">🗺️</span>
             <div className="flex-1">
               <p className="text-sm font-semibold" style={{ color: 'rgba(0,0,0,0.75)' }}>
-                {myMapResponses.length} new My Map {myMapResponses.length === 1 ? 'response' : 'responses'}
+                {myMapResponses.filter(r => r.isNew).length} new My Map {myMapResponses.filter(r => r.isNew).length === 1 ? 'response' : 'responses'}
               </p>
               <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.45)' }}>
-                {myMapResponses[0].responder_name}{myMapResponses.length > 1 ? ` + ${myMapResponses.length - 1} more` : ''} responded · scroll down to view
+                Scroll down to view
               </p>
             </div>
           </div>
@@ -211,6 +210,14 @@ export default function Home() {
                         >
                           My Map
                         </span>
+                        {resp.isNew && (
+                          <span
+                            className="text-[9px] px-2 py-0.5 rounded-full text-white font-medium shrink-0 animate-pulse"
+                            style={{ background: '#C5A3CF' }}
+                          >
+                            New
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs opacity-40 mt-0.5">
                         Responded · {new Date(resp.created_at).toLocaleDateString()}

@@ -63,7 +63,7 @@ export default function ConnectionCard({ connection, onDelete, badgeText }: { co
         <Link
           href={`/edit/${connection.id}`}
           className="w-8 h-8 rounded-full flex items-center justify-center transition-opacity hover:opacity-90"
-          style={{ background: 'rgba(137,207,240,0.15)', border: '1.5px solid rgba(137,207,240,0.7)', color: '#5BA8CC' }}
+          style={{ border: '1.5px solid rgba(137,207,240,0.7)', color: '#5BA8CC' }}
           title="Edit"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -74,7 +74,7 @@ export default function ConnectionCard({ connection, onDelete, badgeText }: { co
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
             className="w-8 h-8 rounded-full flex items-center justify-center transition-opacity hover:opacity-90"
-            style={{ background: 'rgba(220,80,80,0.08)', border: '1.5px solid rgba(210,70,70,0.55)', color: '#C84040' }}
+            style={{ border: '1.5px solid rgba(210,70,70,0.55)', color: '#C84040' }}
             title="Delete"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
