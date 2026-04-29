@@ -146,21 +146,35 @@ export default function MapComparePage() {
         </div>
       </div>
 
-      <div className="px-5 space-y-3">
+      <div className="px-5">
         {viewMode === 'shared' ? (
           <>
-            <Highlights connection={myConn} theirConnection={theirConn} theirName={data.personA.name} />
-            <SharedCategoryCards
-              myConnection={myConn}
-              theirConnection={theirConn}
-              myName={data.personB.name}
-              theirName={data.personA.name}
-            />
+            <div className="mb-8">
+              <Highlights connection={myConn} theirConnection={theirConn} theirName={data.personA.name} />
+            </div>
+            <div className="mb-8">
+              <h2 className="text-2xl font-extrabold uppercase tracking-wide mb-3 px-1" style={{ color: 'rgba(0,0,0,0.7)' }}>
+                Connection Landscape
+              </h2>
+              <SharedCategoryCards
+                myConnection={myConn}
+                theirConnection={theirConn}
+                myName={data.personB.name}
+                theirName={data.personA.name}
+              />
+            </div>
           </>
         ) : (
           <>
-            <Highlights connection={myConn} />
-            <CategoryCards connection={myConn} />
+            <div className="mb-8">
+              <Highlights connection={myConn} />
+            </div>
+            <div className="mb-8">
+              <h2 className="text-2xl font-extrabold uppercase tracking-wide mb-3 px-1" style={{ color: 'rgba(0,0,0,0.7)' }}>
+                Connection Landscape
+              </h2>
+              <CategoryCards connection={myConn} />
+            </div>
           </>
         )}
       </div>

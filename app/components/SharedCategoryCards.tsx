@@ -27,28 +27,22 @@ const TIER_COLORS_DARK: Record<Tier, string> = {
   'off-limits': '#D47020',
 };
 
-// Card color based on alignment ratio
-function getCardColor(alignmentRatio: number): string {
-  const teal = { r: 0, g: 148, b: 131 };
-  const green = { r: 129, g: 204, b: 115 };
-  const yellow = { r: 255, g: 239, b: 133 };
-  const orange = { r: 255, g: 148, b: 72 };
+function hexToRgb(hex: string) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return [r, g, b] as const;
+}
 
-  let from, to, t;
-  if (alignmentRatio >= 0.8) {
-    from = green; to = teal; t = (alignmentRatio - 0.8) / 0.2;
-  } else if (alignmentRatio >= 0.6) {
-    from = yellow; to = green; t = (alignmentRatio - 0.6) / 0.2;
-  } else if (alignmentRatio >= 0.4) {
-    from = orange; to = yellow; t = (alignmentRatio - 0.4) / 0.2;
-  } else {
-    from = orange; to = orange; t = 0;
-  }
-
-  const r = Math.round(from.r + (to.r - from.r) * t);
-  const g = Math.round(from.g + (to.g - from.g) * t);
-  const b = Math.round(from.b + (to.b - from.b) * t);
-  return `rgb(${r}, ${g}, ${b})`;
+// Light (high alignment) → dark (low alignment) using the category's own color
+function categoryGradient(color: string, ratio: number) {
+  const [r, g, b] = hexToRgb(color);
+  const alpha = 0.25 + (1 - ratio) * 0.60;
+  return {
+    background: `linear-gradient(135deg, rgba(${r},${g},${b},${alpha.toFixed(2)}) 0%, rgba(${r},${g},${b},${(alpha * 0.7).toFixed(2)}) 100%)`,
+    boxShadow: `0 4px 18px rgba(${r},${g},${b},${(alpha * 0.55).toFixed(2)}), inset 0 -2px 6px rgba(${r},${g},${b},${(alpha * 0.35).toFixed(2)})`,
+    border: '2px solid rgba(255,255,255,0.5)',
+  };
 }
 
 interface DimensionRow {
@@ -125,7 +119,7 @@ export default function SharedCategoryCards({ myConnection, theirConnection, myN
         alignmentRatio,
         alignedCount,
         totalDims: dimensions.length,
-        color: getCardColor(alignmentRatio),
+        categoryColor: catDef.color,
       };
     })
     .filter(Boolean) as {
@@ -135,7 +129,7 @@ export default function SharedCategoryCards({ myConnection, theirConnection, myN
       alignmentRatio: number;
       alignedCount: number;
       totalDims: number;
-      color: string;
+      categoryColor: string;
     }[];
 
   if (categoryData.length === 0) return null;
@@ -152,11 +146,7 @@ export default function SharedCategoryCards({ myConnection, theirConnection, myN
             <button
               onClick={() => { setExpandedId(isExpanded ? null : cat.id); setPeekItem(null); }}
               className="w-full text-left px-5 py-5 transition-all active:scale-[0.99] rounded-2xl"
-              style={{
-                background: cat.color,
-                boxShadow: `0 4px 18px ${cat.color}55, inset 0 -2px 6px ${cat.color}40`,
-                border: '2px solid rgba(255,255,255,0.5)',
-              }}
+              style={categoryGradient(cat.categoryColor, cat.alignmentRatio)}
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1">
