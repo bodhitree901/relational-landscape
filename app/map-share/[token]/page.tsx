@@ -8,6 +8,7 @@ import {
   isSupabaseToken, getMyMapShare, submitMyMapResponse,
   type MyMapProfile,
 } from '../../lib/supabase/my-map-shares';
+import WelcomeScreen from '../../components/WelcomeScreen';
 
 interface SharerData {
   name: string;
@@ -32,7 +33,7 @@ const TIER_CONFIG: { key: MenuTier; label: string; gradient: string; shadowColor
   { key: 'off-limits', label: "Not Available / Not Selected", gradient: 'linear-gradient(135deg, #F4A89A 0%, #C5A3CF 100%)', shadowColor: '#F4A89A', includeUnrated: true },
 ];
 
-type PageMode = 'loading' | 'invalid' | 'choose' | 'view' | 'fill';
+type PageMode = 'loading' | 'invalid' | 'welcome' | 'choose' | 'view' | 'fill';
 
 export default function MapSharePage() {
   const params = useParams();
@@ -73,7 +74,7 @@ export default function MapSharePage() {
           setPageMode('invalid'); return;
         }
       }
-      setPageMode('choose');
+      setPageMode('welcome');
     }
     load();
   }, [token]);
@@ -101,6 +102,10 @@ export default function MapSharePage() {
         <a href="/" className="text-sm underline opacity-40">Go home</a>
       </div>
     );
+  }
+
+  if (pageMode === 'welcome') {
+    return <WelcomeScreen onContinue={() => setPageMode('choose')} />;
   }
 
   // ── Choose screen ──────────────────────────────────────────────────────

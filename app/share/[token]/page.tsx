@@ -10,6 +10,7 @@ import type { ProfileSnapshot } from '../../lib/supabase/types';
 import ChipPool, { ChipRating } from '../../components/ChipPool';
 import { CONNECTION_TIERS } from '../../lib/tier-configs';
 import InstructionOverlay from '../../components/InstructionOverlay';
+import WelcomeScreen from '../../components/WelcomeScreen';
 import ColorPicker, { ConnectionCircle } from '../../components/ColorPicker';
 import WordCloud from '../../components/WordCloud';
 import Highlights from '../../components/Highlights';
@@ -17,7 +18,7 @@ import CategoryCards from '../../components/CategoryCards';
 import SharedCategoryCards from '../../components/SharedCategoryCards';
 import Link from 'next/link';
 
-type Step = 'loading' | 'error' | 'intro' | 'name' | 'instructions' | 'category' | 'submitting' | 'results';
+type Step = 'loading' | 'error' | 'intro' | 'name' | 'welcome' | 'instructions' | 'category' | 'submitting' | 'results';
 
 export default function SharePage() {
   const params = useParams();
@@ -68,7 +69,7 @@ export default function SharePage() {
 
   const handleNameSubmit = () => {
     if (!myName.trim()) return;
-    setStep('instructions');
+    setStep('welcome');
   };
 
   const handleCategoryComplete = async (chipRatings: ChipRating[]) => {
@@ -223,6 +224,10 @@ export default function SharePage() {
         </div>
       </div>
     );
+  }
+
+  if (step === 'welcome') {
+    return <WelcomeScreen onContinue={() => setStep('instructions')} />;
   }
 
   // Instructions

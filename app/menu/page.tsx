@@ -9,6 +9,7 @@ import { SUBCATEGORY_DEFINITIONS } from '../lib/definitions';
 import { useAuth } from '../components/AuthProvider';
 import { createMyMapShare, getMyMapShareUrl } from '../lib/supabase/my-map-shares';
 import { pushMyMap } from '../lib/supabase/sync';
+import WelcomeScreen from '../components/WelcomeScreen';
 
 const STORAGE_KEY = 'rl_my_menu';
 const NAME_KEY = 'rl_my_name';
@@ -36,7 +37,7 @@ function saveName(name: string) {
 }
 
 
-type Step = 'name' | 'intro' | 'swiping' | 'complete';
+type Step = 'name' | 'welcome' | 'intro' | 'swiping' | 'complete';
 
 export default function MyMenuPage() {
   const [step, setStep] = useState<Step>('name');
@@ -112,7 +113,7 @@ export default function MyMenuPage() {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && myName.trim()) {
                 saveName(myName.trim());
-                setStep('intro');
+                setStep('welcome');
               }
             }}
             placeholder="Your name..."
@@ -123,7 +124,7 @@ export default function MyMenuPage() {
             onClick={() => {
               if (!myName.trim()) return;
               saveName(myName.trim());
-              setStep('intro');
+              setStep('welcome');
             }}
             disabled={!myName.trim()}
             className="mt-8 px-8 py-3 rounded-2xl text-white font-medium transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-30"
@@ -134,6 +135,10 @@ export default function MyMenuPage() {
         </div>
       </div>
     );
+  }
+
+  if (step === 'welcome') {
+    return <WelcomeScreen onContinue={() => setStep('intro')} />;
   }
 
   // Intro

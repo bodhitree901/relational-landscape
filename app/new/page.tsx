@@ -8,8 +8,9 @@ import ColorPicker from '../components/ColorPicker';
 import ChipPool, { ChipRating } from '../components/ChipPool';
 import { CONNECTION_TIERS } from '../lib/tier-configs';
 import InstructionOverlay from '../components/InstructionOverlay';
+import WelcomeScreen from '../components/WelcomeScreen';
 
-type Step = 'name' | 'instructions' | 'category';
+type Step = 'name' | 'welcome' | 'instructions' | 'category';
 
 export default function NewConnection() {
   const router = useRouter();
@@ -31,7 +32,7 @@ export default function NewConnection() {
 
   const handleNameSubmit = () => {
     if (!name.trim()) return;
-    setStep('instructions');
+    setStep('welcome');
   };
 
   const handleCategoryComplete = (chipRatings: ChipRating[]) => {
@@ -123,6 +124,10 @@ export default function NewConnection() {
         </div>
       </div>
     );
+  }
+
+  if (step === 'welcome') {
+    return <WelcomeScreen onContinue={() => setStep('instructions')} />;
   }
 
   if (step === 'instructions') {
