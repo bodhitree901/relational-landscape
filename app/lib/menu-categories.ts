@@ -112,7 +112,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       '3rd Party Support',
       'Being Relied Upon for Support',
       'Sharing Vulnerable Feelings',
-      'Emotional Intimacy with Others',
+      'Multiple Emotional Bonds',
     ],
   },
   {
@@ -134,7 +134,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       'Sensual Interactions',
       'Sexual Interactions',
       'Kink',
-      'Sexual Interactions with Others',
+      'Multiple Sexual Connections',
     ],
   },
   {
@@ -184,7 +184,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       'Voice Messages',
       'Discussing Work and Hobbies',
       'Discussing Family, Partners, Relationships',
-      'Transparency About Other Relationships',
+      'Transparency Across Relationships',
       'Discussing Politics and Current Events',
       'Playing and Laughing Together',
       'Intellectual/Philosophical Discussions',

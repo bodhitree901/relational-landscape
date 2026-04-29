@@ -321,20 +321,21 @@ export default function ChipPool({
       {showDef && !draggingItem && <DefinitionTooltip label={showDef} onClose={() => setShowDef(null)} />}
 
       {/* Header */}
-      <div className="px-5 pt-5 pb-2 relative z-40">
+      <div className="px-5 pt-5 pb-2 relative z-40" style={{ background: `${categoryColor}28` }}>
         <div className="flex items-center justify-between mb-1">
-          <button onClick={onBack} className="text-sm opacity-60 hover:opacity-100 transition-opacity">
+          <button onClick={onBack} className="text-sm hover:opacity-100 transition-opacity" style={{ color: 'rgba(0,0,0,0.65)' }}>
             &larr;
           </button>
           <div className="text-center">
-            <p className="text-base font-semibold" style={{ fontFamily: 'Georgia, serif', color: categoryColor }}>
+            <p className="text-base font-semibold" style={{ fontFamily: 'Georgia, serif', color: categoryColor, filter: 'brightness(0.7)' }}>
               {categoryName}
             </p>
-            <p className="text-xs opacity-30">{stepNumber} / {totalSteps}</p>
+            <p className="text-xs" style={{ color: 'rgba(0,0,0,0.45)' }}>{stepNumber} / {totalSteps}</p>
           </div>
           <button
             onClick={handleNext}
-            className="text-sm opacity-60 hover:opacity-100 transition-opacity"
+            className="text-sm hover:opacity-100 transition-opacity"
+            style={{ color: 'rgba(0,0,0,0.65)' }}
           >
             {ratedCount > 0 ? 'Next' : 'Skip'} &rarr;
           </button>
@@ -480,7 +481,7 @@ export default function ChipPool({
       </div>
 
       {/* Bottom bar */}
-      <div className="px-5 pb-4 relative z-40 flex items-center justify-between">
+      <div className="px-5 pb-4 relative z-40 flex items-center justify-between" style={{ background: `${categoryColor}28` }}>
         {undoStack.length > 0 ? (
           <button
             onClick={handleUndo}
@@ -495,7 +496,7 @@ export default function ChipPool({
         ) : (
           <div className="w-10" />
         )}
-        <p className="text-xs opacity-25 text-center">
+        <p className="text-xs text-center" style={{ color: 'rgba(0,0,0,0.45)' }}>
           {ratedCount > 0 ? `${ratedCount} of ${items.length} sorted` : 'drag to edges · tap for definition'}
         </p>
         <div className="w-10" />

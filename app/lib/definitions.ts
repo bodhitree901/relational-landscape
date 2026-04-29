@@ -1,6 +1,6 @@
 export const SUBCATEGORY_DEFINITIONS: Record<string, string> = {
   // ---- Life Infrastructure ----
-  'Co-Housing': 'Living together in a shared home — sharing daily space, routines, and domestic life',
+  'Co-Housing': 'Living together in a shared home with one or more people — sharing daily space, routines, and domestic life',
   'Sharing a Sleeping Space': 'Regularly sleeping in the same room or bed — beyond just spending the night',
   'Shared Chores': 'Dividing up household tasks together — cleaning, cooking, laundry, taking turns',
   'Shared Meals': 'Regularly eating together — cooking for each other, grocery shopping, meal planning as a unit',
@@ -41,7 +41,7 @@ export const SUBCATEGORY_DEFINITIONS: Record<string, string> = {
   'Terms of Endearment': 'Using affectionate nicknames — babe, love, sweetie, or your own unique inventions for each other',
   'Offering Emotional Support': 'Showing up emotionally when things are tough — listening, comforting, holding space without fixing',
   'Saying "I Love You"': 'Verbally expressing love — whether casually, deeply, or for the first time',
-  'Sharing Longings': 'Opening up about deep desires and yearnings — what you truly want from life, love, and connection',
+  'Sharing Longings': 'Opening up about deep desires and yearnings specifically within this connection — what you truly want from and with each other',
   'Knowing Personal Likes and Dislikes': 'Learning and remembering each other\'s preferences, tastes, and pet peeves — paying attention',
   'Sharing About Mental Health': 'Being open about your mental health experiences, diagnoses, or struggles without shame',
   'Supporting Mental Health Work': 'Actively supporting each other\'s therapy, medication, or mental health practices and growth',
@@ -53,6 +53,7 @@ export const SUBCATEGORY_DEFINITIONS: Record<string, string> = {
   'Being Relied Upon for Support': 'Being someone\'s go-to person — they count on you and you show up consistently',
   'Sharing Vulnerable Feelings': 'Opening up about fears, insecurities, and tender emotions — letting yourself be truly seen',
   'Emotional Intimacy with Others': 'Openness to your partner having deep emotional bonds with other people — compersion for closeness',
+  'Multiple Emotional Bonds': 'Openness to having deep emotional bonds with multiple people — compersion for closeness',
 
   // ---- Physical Intimacy ----
   'Physical Affection': 'Casual, warm touch — pats on the back, a hand on the shoulder, gentle everyday contact',
@@ -69,6 +70,7 @@ export const SUBCATEGORY_DEFINITIONS: Record<string, string> = {
   'Sexual Interactions': 'Explicit sexual activity — the physical expression of sexual connection and desire',
   'Kink': 'Shared kink dynamics or BDSM elements — power play, role dynamics, fetish, exploration together',
   'Sexual Interactions with Others': 'Openness to sexual connections outside this relationship — with transparency and agreements',
+  'Multiple Sexual Connections': 'Openness to sexual connections with multiple people — with transparency and agreements',
 
   // ---- Social Integration ----
   'Down to Meet Friends': 'Willingness to be introduced to each other\'s friend circles — showing up socially',
@@ -77,7 +79,7 @@ export const SUBCATEGORY_DEFINITIONS: Record<string, string> = {
   'Integrate with Friends': 'Going beyond meeting — becoming part of each other\'s friend groups, building your own bonds',
   'Integrate with Metamours': 'Building genuine relationships with your partner\'s other partners — kitchen table polyamory, shared meals and ease',
   'Integration with Family': 'Becoming part of each other\'s family fabric — holidays, traditions, being known and welcomed',
-  'Supporting Friendships': 'Actively encouraging and supporting each other\'s independent friendships — no jealousy, just care',
+  'Supporting Friendships': 'Actively encouraging and supporting each other\'s independent friendships',
   'Supporting Metamour Relationships': 'Actively supporting your partner\'s other relationships — scheduling flexibility, emotional generosity',
   'Presenting as a Social Unit in Public': 'Being openly together in the world — people know you\'re connected and see you as a pair or unit',
   'Presenting as a Social Unit on Social Media': 'Sharing your connection publicly online — photos together, tags, relationship visibility',
@@ -86,11 +88,11 @@ export const SUBCATEGORY_DEFINITIONS: Record<string, string> = {
 
   // ---- Financial/Legal ----
   'Shared Bank Account(s)': 'Having joint finances — a shared account for mutual expenses, savings, or full merging',
-  'Financial Support': 'Helping each other financially — covering expenses, support through tough times, having each other\'s backs',
+  'Financial Support': 'Helping each other financially — covering expenses, support through tough times',
   'Gifts': 'Giving and receiving gifts — thoughtful presents, generous gestures, material expressions of care',
   'Financial Integration': 'Merging finances beyond a shared account — joint budgeting, shared financial planning and goals',
   'Sharing Costs': 'Splitting expenses together — rent, groceries, dining out, subscriptions, daily life costs',
-  'Lending Money': 'Financial trust — lending or borrowing money from each other when needed, without weirdness',
+  'Lending Money': 'Lending or borrowing money from each other when needed',
   'Legal Processes': 'Navigating legal systems together — power of attorney, adoption, citizenship sponsorship, wills',
   'Marriage/Civil Partnership': 'A formal legal union — marriage, civil partnership, domestic partnership, legal recognition',
 
@@ -100,12 +102,13 @@ export const SUBCATEGORY_DEFINITIONS: Record<string, string> = {
   'Voice Messages': 'Sending audio messages — the warmth of hearing each other\'s voice without needing to sync schedules',
   'Discussing Work and Hobbies': 'Sharing what you\'re working on, what excites you, your daily pursuits and passions',
   'Discussing Family, Partners, Relationships': 'Talking openly about other people in your lives — family dynamics, other partners, friendships',
-  'Transparency About Other Relationships': 'Being open and honest about other romantic or sexual connections — no secrets, clear communication',
+  'Transparency About Other Relationships': 'Being open and honest about other romantic or sexual connections',
+  'Transparency Across Relationships': 'Being open and honest across all your romantic or sexual connections',
   'Discussing Politics and Current Events': 'Engaging with the world together — news, politics, social issues, what\'s happening around you',
   'Playing and Laughing Together': 'Being silly, playful, and lighthearted — inside jokes, banter, goofing around, shared humor',
   'Intellectual/Philosophical Discussions': 'Deep thinking together — stimulating conversations, exploring ideas, debating, wondering aloud',
   'Sharing Stories About the Past': 'Opening up about your history — childhood, past relationships, formative experiences and memories',
-  'Radical Honesty': 'A commitment to deep truthfulness — no white lies, full transparency, even when uncomfortable',
+  'Radical Honesty': 'A commitment to deep truthfulness, even when uncomfortable',
   'Relationship "Check-Ins"': 'Intentional conversations about how the relationship is going — needs, feelings, adjustments, gratitude',
 
   // ---- Time and Rhythms ----
