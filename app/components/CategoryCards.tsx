@@ -156,24 +156,23 @@ export default function CategoryCards({ connection }: CategoryCardsProps) {
                         >
                           {PILL_LABELS[tier]}
                         </p>
-                        <div className="space-y-0.5">
+                        <div className="space-y-1.5">
                           {items.map(({ subcategory }) => (
                             <div key={subcategory}>
                               <button
                                 onClick={() => setPeekItem(peekItem === subcategory ? null : subcategory)}
-                                className="w-full flex items-center gap-2.5 py-1.5 px-2 rounded-lg transition-all active:scale-[0.99]"
-                                style={{ background: peekItem === subcategory ? `${MENU_TIER_COLORS[tier]}18` : 'transparent' }}
+                                className="w-full flex items-center gap-2.5 py-2 px-3 rounded-xl transition-all active:scale-[0.98]"
+                                style={{
+                                  background: peekItem === subcategory ? `${MENU_TIER_COLORS[tier]}30` : `${MENU_TIER_COLORS[tier]}12`,
+                                  border: `1.5px solid ${MENU_TIER_COLORS[tier]}40`,
+                                }}
                               >
-                                <div
-                                  className="w-2 h-2 rounded-full shrink-0"
-                                  style={{ background: TIER_COLORS_DARK[tier] }}
-                                />
-                                <span className="flex-1 text-left text-sm underline decoration-dotted underline-offset-2" style={{ color: 'rgba(0,0,0,0.7)', textDecorationColor: 'rgba(0,0,0,0.25)' }}>
+                                <span className="flex-1 text-left text-sm font-medium" style={{ color: 'rgba(0,0,0,0.72)' }}>
                                   {subcategory}
                                 </span>
                                 <span
-                                  className="text-[11px] shrink-0"
-                                  style={{ color: 'rgba(0,0,0,0.3)' }}
+                                  className="text-xs font-semibold px-1.5 py-0.5 rounded-full shrink-0"
+                                  style={{ background: `${MENU_TIER_COLORS[tier]}25`, color: TIER_COLORS_DARK[tier] }}
                                 >
                                   ⓘ
                                 </span>
