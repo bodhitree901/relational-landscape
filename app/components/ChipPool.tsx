@@ -199,7 +199,7 @@ export default function ChipPool({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [activeZone, setActiveZone] = useState<string | null>(null);
   const [showDef, setShowDef] = useState<string | null>(null);
-  const [undoStack, setUndoStack] = useState<string[]>([]);
+  const [undoStack, setUndoStack] = useState<string[]>(() => initialRatings.map((r) => r.item));
   const startPos = useRef({ x: 0, y: 0 });
   const isDragging = useRef(false);
   const lastZone = useRef<string | null>(null);
@@ -485,9 +485,16 @@ export default function ChipPool({
         {undoStack.length > 0 ? (
           <button
             onClick={handleUndo}
-            className="flex items-center gap-1 text-xs opacity-40 hover:opacity-70 transition-opacity"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all active:scale-95"
+            style={{
+              background: `${categoryColor}22`,
+              border: `1px solid ${categoryColor}40`,
+              color: 'rgba(0,0,0,0.55)',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="1 4 1 10 7 10" />
               <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
             </svg>
