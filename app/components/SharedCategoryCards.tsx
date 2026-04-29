@@ -202,9 +202,11 @@ export default function SharedCategoryCards({ myConnection, theirConnection, myN
                       <div key={dim.subcategory}>
                         <button
                           onClick={() => setPeekItem(peekItem === dim.subcategory ? null : dim.subcategory)}
-                          className="w-full flex items-center py-1.5 rounded-lg transition-all active:scale-[0.99]"
+                          className="w-full flex items-center py-1.5 px-1 rounded-lg transition-all active:scale-[0.99]"
+                          style={{ background: peekItem === dim.subcategory ? 'rgba(0,0,0,0.04)' : 'transparent' }}
                         >
-                          <span className="flex-1 text-left text-sm pr-2" style={{ color: 'rgba(0,0,0,0.7)' }}>
+                          <span className="text-[11px] mr-1.5 shrink-0" style={{ color: 'rgba(0,0,0,0.3)' }}>ⓘ</span>
+                          <span className="flex-1 text-left text-sm pr-2 underline decoration-dotted underline-offset-2" style={{ color: 'rgba(0,0,0,0.7)', textDecorationColor: 'rgba(0,0,0,0.25)' }}>
                             {dim.subcategory}
                           </span>
                           <div className="flex gap-0">

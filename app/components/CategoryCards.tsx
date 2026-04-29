@@ -161,23 +161,21 @@ export default function CategoryCards({ connection }: CategoryCardsProps) {
                             <div key={subcategory}>
                               <button
                                 onClick={() => setPeekItem(peekItem === subcategory ? null : subcategory)}
-                                className="w-full flex items-center gap-2.5 py-1.5 px-1 rounded-lg transition-all active:scale-[0.99]"
+                                className="w-full flex items-center gap-2.5 py-1.5 px-2 rounded-lg transition-all active:scale-[0.99]"
+                                style={{ background: peekItem === subcategory ? `${MENU_TIER_COLORS[tier]}18` : 'transparent' }}
                               >
                                 <div
                                   className="w-2 h-2 rounded-full shrink-0"
                                   style={{ background: TIER_COLORS_DARK[tier] }}
                                 />
-                                <span className="flex-1 text-left text-sm" style={{ color: 'rgba(0,0,0,0.7)' }}>
+                                <span className="flex-1 text-left text-sm underline decoration-dotted underline-offset-2" style={{ color: 'rgba(0,0,0,0.7)', textDecorationColor: 'rgba(0,0,0,0.25)' }}>
                                   {subcategory}
                                 </span>
                                 <span
-                                  className="text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0"
-                                  style={{
-                                    background: `${MENU_TIER_COLORS[tier]}25`,
-                                    color: TIER_COLORS_DARK[tier],
-                                  }}
+                                  className="text-[11px] shrink-0"
+                                  style={{ color: 'rgba(0,0,0,0.3)' }}
                                 >
-                                  {PILL_LABELS[tier]}
+                                  ⓘ
                                 </span>
                               </button>
                               {peekItem === subcategory && SUBCATEGORY_DEFINITIONS[subcategory] && (

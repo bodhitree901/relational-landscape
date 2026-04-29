@@ -133,21 +133,17 @@ export default function Home() {
       <div className="px-5 flex gap-3 mb-4">
         <Link
           href="/menu"
-          className="flex-1 watercolor-card watercolor-peach p-4 text-center text-sm font-medium hover:opacity-80 transition-opacity"
+          className="flex-1 watercolor-card p-4 text-center text-sm font-medium hover:opacity-80 transition-opacity"
+          style={{ background: 'linear-gradient(135deg, rgba(244,168,154,0.55), rgba(244,168,154,0.35))', boxShadow: '0 4px 18px rgba(244,168,154,0.45), inset 0 -2px 6px rgba(244,168,154,0.3)' }}
         >
           My Map
         </Link>
         <Link
           href="/patterns"
-          className="flex-1 watercolor-card watercolor-lavender p-4 text-center text-sm font-medium hover:opacity-80 transition-opacity"
+          className="flex-1 watercolor-card p-4 text-center text-sm font-medium hover:opacity-80 transition-opacity"
+          style={{ background: 'linear-gradient(135deg, rgba(197,163,207,0.55), rgba(197,163,207,0.35))', boxShadow: '0 4px 18px rgba(197,163,207,0.45), inset 0 -2px 6px rgba(197,163,207,0.3)' }}
         >
           Patterns
-        </Link>
-        <Link
-          href="/reference"
-          className="flex-1 watercolor-card watercolor-gold p-4 text-center text-sm font-medium hover:opacity-80 transition-opacity"
-        >
-          Reference Map
         </Link>
       </div>
 

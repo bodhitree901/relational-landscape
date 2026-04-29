@@ -398,11 +398,12 @@ export default function MyMenuPage() {
                               <div key={item} style={{ opacity: isUnrated ? 0.3 : 1 }}>
                                 <button
                                   onClick={() => !isUnrated && setPeekItem(peekItem === item ? null : item)}
-                                  className="w-full flex items-center gap-2 py-1 rounded-lg transition-all active:scale-[0.99]"
-                                  style={{ cursor: isUnrated ? 'default' : 'pointer' }}
+                                  className="w-full flex items-center gap-2 py-1 px-1 rounded-lg transition-all active:scale-[0.99]"
+                                  style={{ cursor: isUnrated ? 'default' : 'pointer', background: peekItem === item ? `${MENU_TIER_COLORS[key]}15` : 'transparent' }}
                                 >
-                                  <div className="w-[108px] shrink-0 text-right pr-2">
-                                    <span className="text-xs leading-snug font-medium" style={{ color: 'rgba(0,0,0,0.72)' }}>{item}</span>
+                                  <div className="w-[108px] shrink-0 text-right pr-2 flex items-center justify-end gap-1">
+                                    {!isUnrated && <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.25)' }}>ⓘ</span>}
+                                    <span className="text-xs leading-snug font-medium underline decoration-dotted underline-offset-2" style={{ color: 'rgba(0,0,0,0.72)', textDecorationColor: isUnrated ? 'transparent' : 'rgba(0,0,0,0.2)' }}>{item}</span>
                                   </div>
                                   <div className="flex-1 flex gap-1">
                                     {TIER_ORDER_MENU.map((t) => (
