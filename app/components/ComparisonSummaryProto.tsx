@@ -371,7 +371,7 @@ function RedZonePentagon({ redZone, myInitial, theirInitial }: { redZone: DimDat
   }, [redZone]);
   const total = redZone.length;
 
-  const CX = 90, CY = 90, R = 55, STROKE = 22, SIZE = 180;
+  const CX = 120, CY = 115, R = 90, STROKE = 28;
   const vertices = Array.from({ length: 5 }, (_, i) => {
     const angle = -Math.PI / 2 + (2 * Math.PI * i) / 5;
     return { x: CX + R * Math.cos(angle), y: CY + R * Math.sin(angle) };
@@ -393,46 +393,32 @@ function RedZonePentagon({ redZone, myInitial, theirInitial }: { redZone: DimDat
   const activeCatData = cats.find(c => c.id === activeCatId);
   return (
     <>
-      <div className="flex flex-col items-center">
-        <svg width={SIZE} height={SIZE} style={{ overflow: 'visible' }}>
-          <path d={pentagonPath} pathLength="100" fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth={STROKE} strokeLinejoin="round" strokeLinecap="round" />
-          {segments.map(({ cat, startPct, lenPct }) => {
-            const [r, g, b] = hexToRgb(cat.color);
-            const isActive = activeCatId === cat.id;
-            return (
-              <path
-                key={cat.id}
-                d={pentagonPath}
-                pathLength="100"
-                fill="none"
-                stroke={`rgba(${r},${g},${b},${isActive ? 1 : 0.85})`}
-                strokeWidth={isActive ? STROKE + 6 : STROKE}
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                strokeDasharray={`${lenPct.toFixed(2)} 9999`}
-                strokeDashoffset={(-startPct).toFixed(2)}
-                style={{ cursor: 'pointer', transition: 'stroke-width 0.2s ease, stroke 0.2s ease' }}
-                onClick={() => setActiveCatId(isActive ? null : cat.id)}
-              />
-            );
-          })}
-          <text x={CX} y={CY - 8} textAnchor="middle" fontSize="26" fontWeight="800" fill="rgba(0,0,0,0.72)" fontFamily="Georgia, serif">{total}</text>
-          <text x={CX} y={CY + 8} textAnchor="middle" fontSize="8.5" fontWeight="600" fill="rgba(0,0,0,0.32)" letterSpacing="0.8">SHARED NO&apos;S</text>
-        </svg>
-        <div className="flex gap-3 mt-2 overflow-x-auto px-1 pb-0.5" style={{ scrollbarWidth: 'none' }}>
-          {cats.map(cat => {
-            const [r, g, b] = hexToRgb(cat.color);
-            const isActive = activeCatId === cat.id;
-            return (
-              <button key={cat.id} onClick={() => setActiveCatId(isActive ? null : cat.id)} className="flex items-center gap-1.5 text-xs transition-all shrink-0" style={{ color: isActive ? `rgba(${r},${g},${b},1)` : 'rgba(0,0,0,0.45)', fontWeight: isActive ? 700 : 500 }}>
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: `rgba(${r},${g},${b},${isActive ? 1 : 0.7})`, transform: isActive ? 'scale(1.3)' : 'scale(1)', transition: 'transform 0.15s' }} />
-                {cat.name}
-              </button>
-            );
-          })}
-        </div>
-        <p className="text-[10px] mt-2" style={{ color: 'rgba(0,0,0,0.25)' }}>tap a segment</p>
-      </div>
+      <svg viewBox="0 0 240 230" width="100%" style={{ display: 'block' }}>
+        <path d={pentagonPath} pathLength="100" fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth={STROKE} strokeLinejoin="round" strokeLinecap="round" />
+        {segments.map(({ cat, startPct, lenPct }) => {
+          const [r, g, b] = hexToRgb(cat.color);
+          const isActive = activeCatId === cat.id;
+          return (
+            <path
+              key={cat.id}
+              d={pentagonPath}
+              pathLength="100"
+              fill="none"
+              stroke={`rgba(${r},${g},${b},${isActive ? 1 : 0.85})`}
+              strokeWidth={isActive ? STROKE + 7 : STROKE}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              strokeDasharray={`${lenPct.toFixed(2)} 9999`}
+              strokeDashoffset={(-startPct).toFixed(2)}
+              style={{ cursor: 'pointer', transition: 'stroke-width 0.2s ease, stroke 0.2s ease' }}
+              onClick={() => setActiveCatId(isActive ? null : cat.id)}
+            />
+          );
+        })}
+        <text x={CX} y={CY - 10} textAnchor="middle" fontSize="44" fontWeight="800" fill="rgba(0,0,0,0.72)" fontFamily="Georgia, serif">{total}</text>
+        <text x={CX} y={CY + 12} textAnchor="middle" fontSize="11" fontWeight="600" fill="rgba(0,0,0,0.30)" letterSpacing="1">SHARED NO&apos;S</text>
+        <text x={CX} y={CY + 28} textAnchor="middle" fontSize="9" fontWeight="500" fill="rgba(0,0,0,0.18)" letterSpacing="0.3">tap to explore</text>
+      </svg>
       {activeCatData && <RedZonePopup catName={activeCatData.name} catColor={activeCatData.color} dims={activeCatData.dims} myInitial={myInitial} theirInitial={theirInitial} onClose={() => setActiveCatId(null)} />}
     </>
   );
