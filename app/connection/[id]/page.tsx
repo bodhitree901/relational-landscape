@@ -9,10 +9,7 @@ import { createInvitation, getShareUrl, getResponseForConnection, snapshotToConn
 import type { ProfileSnapshot } from '../../lib/supabase/types';
 import { useAuth } from '../../components/AuthProvider';
 import { signInWithGoogle, signInWithMagicLink } from '../../lib/supabase/auth';
-import CategoryCards from '../../components/CategoryCards';
-import SharedCategoryCards from '../../components/SharedCategoryCards';
-import Highlights from '../../components/Highlights';
-import DefaultsComparison from '../../components/DefaultsComparison';
+import ComparisonSummaryProto from '../../components/ComparisonSummaryProto';
 import { ConnectionCircle } from '../../components/ColorPicker';
 import Link from 'next/link';
 
@@ -279,37 +276,11 @@ export default function ConnectionProfile() {
 
       {/* ===== MY VIEW ===== */}
       {viewMode === 'my' && (
-        <>
-          {/* Act 1: Highlights (solo — no comparison) */}
-          <div className="px-5 mb-8">
-            <Highlights connection={connection} />
-          </div>
-
-          {/* Act 2: Connection Landscape */}
-          <div className="px-5 mb-8">
-            <div className="flex items-center justify-between mb-3 px-1">
-              <h2 className="text-2xl font-extrabold uppercase tracking-wide" style={{ color: 'rgba(0,0,0,0.7)' }}>
-                Connection Landscape
-              </h2>
-              <Link
-                href={`/prototype?id=${connection.id}`}
-                className="text-xs px-3 py-1 rounded-full font-medium transition-all"
-                style={{ background: 'rgba(197,163,207,0.25)', color: '#9B6EAF' }}
-              >
-                ✦ New layout
-              </Link>
-            </div>
-            <CategoryCards connection={connection} />
-          </div>
-
-          {/* Act 3: Comparison to My Defaults */}
-          <div className="px-5 mb-8">
-            <h2 className="text-2xl font-extrabold uppercase tracking-wide mb-3 px-1" style={{ color: 'rgba(0,0,0,0.7)' }}>
-              Compared to My Defaults
-            </h2>
-            <DefaultsComparison connection={connection} />
-          </div>
-        </>
+        <ComparisonSummaryProto
+          myConnection={connection}
+          myName={connection.name}
+          mode="single"
+        />
       )}
 
       {/* ===== SHARED VIEW ===== */}
@@ -319,34 +290,15 @@ export default function ConnectionProfile() {
         const theirDisplayName = supabaseResponse ? supabaseResponse.responderName :
           sharedComparison ? sharedComparison.theirProfile.name : '';
         const myDisplayName = typeof window !== 'undefined' ? localStorage.getItem('rl_my_name') || connection.name : connection.name;
-
-        return (
-          <>
-            {/* Highlights with comparison */}
-            <div className="px-5 mb-8">
-              <Highlights
-                connection={connection}
-                theirConnection={theirConn || undefined}
-                theirName={theirDisplayName || undefined}
-              />
-            </div>
-
-            {/* Connection Landscape (shared heat map) */}
-            {theirConn && (
-              <div className="px-5 mb-8">
-                <h2 className="text-2xl font-extrabold uppercase tracking-wide mb-3 px-1" style={{ color: 'rgba(0,0,0,0.7)' }}>
-                  Connection Landscape
-                </h2>
-                <SharedCategoryCards
-                  myConnection={connection}
-                  theirConnection={theirConn}
-                  myName={myDisplayName}
-                  theirName={theirDisplayName}
-                />
-              </div>
-            )}
-          </>
-        );
+        return theirConn ? (
+          <ComparisonSummaryProto
+            myConnection={connection}
+            theirConnection={theirConn}
+            myName={myDisplayName}
+            theirName={theirDisplayName}
+            mode="shared"
+          />
+        ) : null;
       })()}
 
       {/* Delete */}

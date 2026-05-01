@@ -208,8 +208,8 @@ function BubbleMapOverview({ catScores, myInitial, theirInitial, myColor, theirC
 
 // ── Green Zone Ring ───────────────────────────────────────────────────────────
 
-function GreenZonePopup({ catName, catColor, dims, myInitial, theirInitial, onClose }: {
-  catName: string; catColor: string; dims: DimData[]; myInitial: string; theirInitial: string; onClose: () => void;
+function GreenZonePopup({ catName, catColor, dims, myInitial, theirInitial, isSingle, onClose }: {
+  catName: string; catColor: string; dims: DimData[]; myInitial: string; theirInitial: string; isSingle?: boolean; onClose: () => void;
 }) {
   const [peekItem, setPeekItem] = useState<string | null>(null);
   const [r, g, b] = hexToRgb(catColor);
@@ -222,24 +222,24 @@ function GreenZonePopup({ catName, catColor, dims, myInitial, theirInitial, onCl
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-extrabold uppercase tracking-wide" style={{ color: 'rgba(0,0,0,0.75)' }}>{catName}</h3>
-              <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>{dims.length} shared yes&apos;s in this area</p>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>{dims.length} {isSingle ? "yes's" : "shared yes's"} in this area</p>
             </div>
             <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background: `rgba(${r},${g},${b},0.15)`, color: 'rgba(0,0,0,0.4)' }}>✕</button>
           </div>
         </div>
         <div className="overflow-y-auto px-5 pb-8 pt-3 space-y-2">
           {dims.map((d) => {
-            const both = d.myTier === 'must-have' && d.theirTier === 'must-have';
+            const highlight = isSingle ? d.myTier === 'must-have' : (d.myTier === 'must-have' && d.theirTier === 'must-have');
             return (
               <div key={d.subcategory}>
-                <button onClick={() => setPeekItem(peekItem === d.subcategory ? null : d.subcategory)} className="w-full flex items-center gap-3 py-2.5 px-3 rounded-2xl transition-all active:scale-[0.98]" style={{ background: peekItem === d.subcategory ? `rgba(${r},${g},${b},0.12)` : `rgba(${r},${g},${b},0.06)`, border: `1.5px solid rgba(${r},${g},${b},${both ? 0.35 : 0.15})` }}>
+                <button onClick={() => setPeekItem(peekItem === d.subcategory ? null : d.subcategory)} className="w-full flex items-center gap-3 py-2.5 px-3 rounded-2xl transition-all active:scale-[0.98]" style={{ background: peekItem === d.subcategory ? `rgba(${r},${g},${b},0.12)` : `rgba(${r},${g},${b},0.06)`, border: `1.5px solid rgba(${r},${g},${b},${highlight ? 0.35 : 0.15})` }}>
                   <span className="text-[10px] px-1 py-0.5 rounded-full shrink-0" style={{ background: `rgba(${r},${g},${b},0.15)`, color: `rgba(${r},${g},${b},1)` }}>ⓘ</span>
                   <span className="flex-1 text-left text-sm font-medium" style={{ color: 'rgba(0,0,0,0.72)' }}>{d.subcategory}</span>
                   <div className="flex items-center gap-1 shrink-0">
                     <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ background: TIER_COLORS[d.myTier] }}>{myInitial}</span>
-                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2" style={{ borderColor: TIER_COLORS[d.theirTier], color: TIER_COLORS[d.theirTier], background: TIER_BG[d.theirTier] }}>{theirInitial}</span>
+                    {!isSingle && <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2" style={{ borderColor: TIER_COLORS[d.theirTier], color: TIER_COLORS[d.theirTier], background: TIER_BG[d.theirTier] }}>{theirInitial}</span>}
                   </div>
-                  {both && <span className="text-[#007A6B] text-xs shrink-0">✦</span>}
+                  {highlight && <span className="text-[#007A6B] text-xs shrink-0">✦</span>}
                 </button>
                 {peekItem === d.subcategory && SUBCATEGORY_DEFINITIONS[d.subcategory] && (
                   <div className="ml-2 mr-1 mb-1 px-3 py-2 rounded-xl text-xs leading-relaxed" style={{ background: `rgba(${r},${g},${b},0.08)`, color: 'rgba(0,0,0,0.5)', animation: 'tooltip-enter 0.15s ease-out' }}>{SUBCATEGORY_DEFINITIONS[d.subcategory]}</div>
@@ -254,7 +254,7 @@ function GreenZonePopup({ catName, catColor, dims, myInitial, theirInitial, onCl
   );
 }
 
-function GreenZoneRing({ greenZone, myInitial, theirInitial }: { greenZone: DimData[]; myInitial: string; theirInitial: string }) {
+function GreenZoneRing({ greenZone, myInitial, theirInitial, isSingle }: { greenZone: DimData[]; myInitial: string; theirInitial: string; isSingle?: boolean }) {
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
   const cats = useMemo(() => {
     const map = new Map<string, { id: string; name: string; color: string; dims: DimData[] }>();
@@ -290,18 +290,18 @@ function GreenZoneRing({ greenZone, myInitial, theirInitial }: { greenZone: DimD
           return <path key={cat.id} d={path} fill="none" stroke={`rgba(${r},${g},${b},${isActive ? 1 : 0.85})`} strokeWidth={isActive ? STROKE + 7 : STROKE} strokeLinecap="round" style={{ cursor: 'pointer', transition: 'stroke-width 0.2s ease, stroke 0.2s ease' }} onClick={() => setActiveCatId(isActive ? null : cat.id)} />;
         })}
         <text x={CX} y={CY - 10} textAnchor="middle" fontSize="44" fontWeight="800" fill="rgba(0,0,0,0.72)" fontFamily="Georgia, serif">{total}</text>
-        <text x={CX} y={CY + 12} textAnchor="middle" fontSize="11" fontWeight="600" fill="rgba(0,0,0,0.30)" letterSpacing="1">SHARED YES&apos;S</text>
+        <text x={CX} y={CY + 12} textAnchor="middle" fontSize="11" fontWeight="600" fill="rgba(0,0,0,0.30)" letterSpacing="1">{isSingle ? "YOUR YES’S" : "SHARED YES’S"}</text>
         <text x={CX} y={CY + 28} textAnchor="middle" fontSize="9" fontWeight="500" fill="rgba(0,0,0,0.18)" letterSpacing="0.3">tap to explore</text>
       </svg>
-      {activeCatData && <GreenZonePopup catName={activeCatData.name} catColor={activeCatData.color} dims={activeCatData.dims} myInitial={myInitial} theirInitial={theirInitial} onClose={() => setActiveCatId(null)} />}
+      {activeCatData && <GreenZonePopup catName={activeCatData.name} catColor={activeCatData.color} dims={activeCatData.dims} myInitial={myInitial} theirInitial={theirInitial} isSingle={isSingle} onClose={() => setActiveCatId(null)} />}
     </>
   );
 }
 
 // ── Red Zone ──────────────────────────────────────────────────────────────────
 
-function RedZonePopup({ catName, catColor, dims, myInitial, theirInitial, onClose }: {
-  catName: string; catColor: string; dims: DimData[]; myInitial: string; theirInitial: string; onClose: () => void;
+function RedZonePopup({ catName, catColor, dims, myInitial, theirInitial, isSingle, onClose }: {
+  catName: string; catColor: string; dims: DimData[]; myInitial: string; theirInitial: string; isSingle?: boolean; onClose: () => void;
 }) {
   const [peekItem, setPeekItem] = useState<string | null>(null);
   const [r, g, b] = hexToRgb(catColor);
@@ -314,24 +314,24 @@ function RedZonePopup({ catName, catColor, dims, myInitial, theirInitial, onClos
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-extrabold uppercase tracking-wide" style={{ color: 'rgba(0,0,0,0.75)' }}>{catName}</h3>
-              <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>{dims.length} shared no&apos;s in this area</p>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>{dims.length} {isSingle ? "no's" : "shared no's"} in this area</p>
             </div>
             <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background: `rgba(${r},${g},${b},0.12)`, color: 'rgba(0,0,0,0.4)' }}>✕</button>
           </div>
         </div>
         <div className="overflow-y-auto px-5 pb-8 pt-3 space-y-2">
           {dims.map((d) => {
-            const bothOff = d.myTier === 'off-limits' && d.theirTier === 'off-limits';
+            const highlight = isSingle ? d.myTier === 'off-limits' : (d.myTier === 'off-limits' && d.theirTier === 'off-limits');
             return (
               <div key={d.subcategory}>
-                <button onClick={() => setPeekItem(peekItem === d.subcategory ? null : d.subcategory)} className="w-full flex items-center gap-3 py-2.5 px-3 rounded-2xl transition-all active:scale-[0.98]" style={{ background: peekItem === d.subcategory ? `rgba(${r},${g},${b},0.1)` : `rgba(${r},${g},${b},0.05)`, border: `1.5px solid rgba(${r},${g},${b},${bothOff ? 0.3 : 0.12})` }}>
+                <button onClick={() => setPeekItem(peekItem === d.subcategory ? null : d.subcategory)} className="w-full flex items-center gap-3 py-2.5 px-3 rounded-2xl transition-all active:scale-[0.98]" style={{ background: peekItem === d.subcategory ? `rgba(${r},${g},${b},0.1)` : `rgba(${r},${g},${b},0.05)`, border: `1.5px solid rgba(${r},${g},${b},${highlight ? 0.3 : 0.12})` }}>
                   <span className="text-[10px] px-1 py-0.5 rounded-full shrink-0" style={{ background: `rgba(${r},${g},${b},0.12)`, color: `rgba(${r},${g},${b},1)` }}>ⓘ</span>
                   <span className="flex-1 text-left text-sm font-medium" style={{ color: 'rgba(0,0,0,0.65)' }}>{d.subcategory}</span>
                   <div className="flex items-center gap-1 shrink-0">
                     <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ background: TIER_COLORS[d.myTier] }}>{myInitial}</span>
-                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2" style={{ borderColor: TIER_COLORS[d.theirTier], color: TIER_COLORS[d.theirTier], background: TIER_BG[d.theirTier] }}>{theirInitial}</span>
+                    {!isSingle && <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2" style={{ borderColor: TIER_COLORS[d.theirTier], color: TIER_COLORS[d.theirTier], background: TIER_BG[d.theirTier] }}>{theirInitial}</span>}
                   </div>
-                  {bothOff && <span className="text-xs shrink-0" style={{ color: TIER_COLORS['off-limits'] }}>✕</span>}
+                  {highlight && <span className="text-xs shrink-0" style={{ color: TIER_COLORS['off-limits'] }}>✕</span>}
                 </button>
                 {peekItem === d.subcategory && SUBCATEGORY_DEFINITIONS[d.subcategory] && (
                   <div className="ml-2 mr-1 mb-1 px-3 py-2 rounded-xl text-xs leading-relaxed" style={{ background: `rgba(${r},${g},${b},0.07)`, color: 'rgba(0,0,0,0.5)', animation: 'tooltip-enter 0.15s ease-out' }}>{SUBCATEGORY_DEFINITIONS[d.subcategory]}</div>
@@ -346,7 +346,7 @@ function RedZonePopup({ catName, catColor, dims, myInitial, theirInitial, onClos
   );
 }
 
-function RedZonePentagon({ redZone, myInitial, theirInitial }: { redZone: DimData[]; myInitial: string; theirInitial: string }) {
+function RedZonePentagon({ redZone, myInitial, theirInitial, isSingle }: { redZone: DimData[]; myInitial: string; theirInitial: string; isSingle?: boolean }) {
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
   const cats = useMemo(() => {
     const map = new Map<string, { id: string; name: string; color: string; dims: DimData[] }>();
@@ -403,10 +403,10 @@ function RedZonePentagon({ redZone, myInitial, theirInitial }: { redZone: DimDat
           );
         })}
         <text x={CX} y={CY - 10} textAnchor="middle" fontSize="44" fontWeight="800" fill="rgba(0,0,0,0.72)" fontFamily="Georgia, serif">{total}</text>
-        <text x={CX} y={CY + 12} textAnchor="middle" fontSize="11" fontWeight="600" fill="rgba(0,0,0,0.30)" letterSpacing="1">SHARED NO&apos;S</text>
+        <text x={CX} y={CY + 12} textAnchor="middle" fontSize="11" fontWeight="600" fill="rgba(0,0,0,0.30)" letterSpacing="1">{isSingle ? "YOUR NO'S" : "SHARED NO'S"}</text>
         <text x={CX} y={CY + 28} textAnchor="middle" fontSize="9" fontWeight="500" fill="rgba(0,0,0,0.18)" letterSpacing="0.3">tap to explore</text>
       </svg>
-      {activeCatData && <RedZonePopup catName={activeCatData.name} catColor={activeCatData.color} dims={activeCatData.dims} myInitial={myInitial} theirInitial={theirInitial} onClose={() => setActiveCatId(null)} />}
+      {activeCatData && <RedZonePopup catName={activeCatData.name} catColor={activeCatData.color} dims={activeCatData.dims} myInitial={myInitial} theirInitial={theirInitial} isSingle={isSingle} onClose={() => setActiveCatId(null)} />}
     </>
   );
 }
@@ -741,8 +741,8 @@ function TensionExplorer({ tension, catScores, myInitial, theirInitial }: {
 
 // ── Zone Swiper ───────────────────────────────────────────────────────────────
 
-function ZoneSwiper({ greenZone, sharedNonWants, myInitial, theirInitial }: {
-  greenZone: DimData[]; sharedNonWants: DimData[]; myInitial: string; theirInitial: string;
+function ZoneSwiper({ greenZone, sharedNonWants, myInitial, theirInitial, isSingle }: {
+  greenZone: DimData[]; sharedNonWants: DimData[]; myInitial: string; theirInitial: string; isSingle?: boolean;
 }) {
   const [activeZone, setActiveZone] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -756,7 +756,7 @@ function ZoneSwiper({ greenZone, sharedNonWants, myInitial, theirInitial }: {
       <div className="flex items-center gap-2 mb-4">
         <span className="w-2 h-2 rounded-full transition-colors" style={{ background: activeZone === 0 ? '#5BA84D' : '#D47020' }} />
         <p className="text-[10px] font-semibold uppercase tracking-widest transition-colors" style={{ color: 'rgba(0,0,0,0.3)' }}>
-          {activeZone === 0 ? 'Green Zone' : "Red Zone — our shared no's"}
+          {activeZone === 0 ? (isSingle ? "Your Yes's" : 'Green Zone') : (isSingle ? "Your No's" : "Red Zone — our shared no's")}
         </p>
         <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.2)' }}>tap a segment</span>
       </div>
@@ -779,14 +779,14 @@ function ZoneSwiper({ greenZone, sharedNonWants, myInitial, theirInitial }: {
         >
           <div style={{ minWidth: '100%', scrollSnapAlign: 'start', flexShrink: 0, padding: '24px 20px' }}>
             {greenZone.length > 0
-              ? <GreenZoneRing greenZone={greenZone} myInitial={myInitial} theirInitial={theirInitial} />
-              : <p className="text-center text-sm py-8 opacity-30">No shared yes&apos;s yet</p>
+              ? <GreenZoneRing greenZone={greenZone} myInitial={myInitial} theirInitial={theirInitial} isSingle={isSingle} />
+              : <p className="text-center text-sm py-8 opacity-30">{isSingle ? 'No yes’s yet' : 'No shared yes’s yet'}</p>
             }
           </div>
           <div style={{ minWidth: '100%', scrollSnapAlign: 'start', flexShrink: 0, padding: '24px 20px' }}>
             {sharedNonWants.length > 0
-              ? <RedZonePentagon redZone={sharedNonWants} myInitial={myInitial} theirInitial={theirInitial} />
-              : <p className="text-center text-sm py-8 opacity-30">No shared no&apos;s yet</p>
+              ? <RedZonePentagon redZone={sharedNonWants} myInitial={myInitial} theirInitial={theirInitial} isSingle={isSingle} />
+              : <p className="text-center text-sm py-8 opacity-30">{isSingle ? 'No no’s yet' : 'No shared no’s yet'}</p>
             }
           </div>
         </div>
@@ -800,7 +800,7 @@ function ZoneSwiper({ greenZone, sharedNonWants, myInitial, theirInitial }: {
               border: `1px solid ${activeZone === 0 ? 'rgba(212,112,32,0.22)' : 'rgba(91,168,77,0.22)'}`,
             }}
           >
-            {activeZone === 0 ? 'Red Zone →' : '← Green Zone'}
+            {activeZone === 0 ? (isSingle ? "Your No's →" : 'Red Zone →') : (isSingle ? "← Your Yes's" : '← Green Zone')}
           </button>
         </div>
       </div>
@@ -811,14 +811,17 @@ function ZoneSwiper({ greenZone, sharedNonWants, myInitial, theirInitial }: {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
+type SummaryMode = 'single' | 'shared' | 'defaults';
+
 interface Props {
   myConnection: Connection;
-  theirConnection: Connection;
+  theirConnection?: Connection;
   myName: string;
-  theirName: string;
+  theirName?: string;
+  mode?: SummaryMode;
 }
 
-export default function ComparisonSummaryProto({ myConnection, theirConnection, myName, theirName }: Props) {
+export default function ComparisonSummaryProto({ myConnection, theirConnection, myName, theirName = '', mode = 'shared' }: Props) {
   const myInitial = myName[0]?.toUpperCase() || 'A';
   const theirInitial = theirName[0]?.toUpperCase() || 'B';
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
@@ -836,6 +839,32 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
   }, []);
 
   const { catScores, greenZone, tension, sharedNonWants } = useMemo(() => {
+    if (mode !== 'shared' || !theirConnection) {
+      // Single / defaults: one-sided computation
+      const allDims: DimData[] = [];
+      const catScores: CatScore[] = [];
+      for (const cat of myConnection.categories) {
+        const catDef = DEFAULT_CATEGORIES.find(c => c.id === cat.categoryId);
+        if (!catDef || cat.ratings.length === 0) continue;
+        const dims: DimData[] = cat.ratings.map(r => ({
+          subcategory: r.subcategory,
+          categoryId: catDef.id, categoryName: catDef.name, categoryColor: catDef.color,
+          myTier: r.tier, theirTier: r.tier,
+        }));
+        dims.sort((a, b) => TIER_POSITION[a.myTier] - TIER_POSITION[b.myTier]);
+        const posCount = dims.filter(d => isPositive(d.myTier)).length;
+        catScores.push({ id: catDef.id, name: catDef.name, color: catDef.color, alignedCount: posCount, totalCount: dims.length, ratio: posCount / dims.length, dims });
+        allDims.push(...dims);
+      }
+      return {
+        catScores,
+        greenZone: allDims.filter(d => isPositive(d.myTier)),
+        tension: [],
+        sharedNonWants: allDims.filter(d => !isPositive(d.myTier)),
+      };
+    }
+
+    // Shared mode: full two-sided comparison
     const theirMap = new Map<string, Map<string, Tier>>();
     for (const cat of theirConnection.categories) {
       const m = new Map<string, Tier>();
@@ -877,7 +906,7 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
     });
     const sharedNonWants = allDims.filter(d => !isPositive(d.myTier) && !isPositive(d.theirTier));
     return { catScores, greenZone, tension, sharedNonWants };
-  }, [myConnection, theirConnection]);
+  }, [myConnection, theirConnection, mode]);
 
   interface Divergence {
     dim: string; catColor: string; connectionName: string; connColor: string;
@@ -909,7 +938,7 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
       }
     };
     checkConn(myConnection, myName, myConnection.color || '#C5A3CF');
-    checkConn(theirConnection, theirName, theirConnection.color || '#89CFF0');
+    if (theirConnection && theirName) checkConn(theirConnection, theirName, theirConnection.color || '#89CFF0');
     // Sort: must-have deviations first (highest signal), then off-limits
     results.sort((a, b) => {
       const score = (d: Divergence) =>
@@ -918,7 +947,7 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
       return score(b) - score(a);
     });
     return results.slice(0, 8);
-  }, [myConnection, theirConnection, myMapDefaults, myName, theirName]);
+  }, [myConnection, theirConnection, myMapDefaults, myName, theirName, mode]);
 
   function divergenceText(d: Divergence): string {
     const { dim, connectionName, defaultTier, connectionTier, more } = d;
@@ -937,24 +966,35 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
     }
   }
 
-  const sentence = generateSentence(greenZone, tension, catScores, myName, theirName);
+  const isSingle = mode !== 'shared';
+  const sentence = mode === 'shared'
+    ? generateSentence(greenZone, tension, catScores, myName, theirName)
+    : mode === 'defaults'
+      ? `${greenZone.length} things you actively want across ${catScores.length} areas of life. ${sharedNonWants.length} things you're setting aside for now.`
+      : `You've mapped ${myName}. ${greenZone.length} yes's across ${catScores.length} areas${sharedNonWants.length > 0 ? `, and ${sharedNonWants.length} things set aside for now` : ''}.`;
   const myColorRgb = hexToRgb(myConnection.color || '#C5A3CF');
-  const theirColorRgb = hexToRgb(theirConnection.color || '#89CFF0');
+  const theirColorRgb = hexToRgb(theirConnection?.color || '#89CFF0');
+
+  const mustHaves = greenZone.filter(d => d.myTier === 'must-have');
 
   return (
     <>
     <div className="space-y-7 pb-8">
 
-      {/* ── AI Sentence ── */}
-      <div className="mx-5 rounded-3xl px-6 py-7 relative overflow-hidden" style={{ background: `linear-gradient(135deg, rgba(${myColorRgb[0]},${myColorRgb[1]},${myColorRgb[2]},0.18) 0%, rgba(${theirColorRgb[0]},${theirColorRgb[1]},${theirColorRgb[2]},0.18) 100%)`, border: '1.5px solid rgba(255,255,255,0.7)', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
+      {/* ── Opening sentence ── */}
+      <div className="mx-5 rounded-3xl px-6 py-7 relative overflow-hidden" style={{ background: isSingle ? `rgba(${myColorRgb[0]},${myColorRgb[1]},${myColorRgb[2]},0.12)` : `linear-gradient(135deg, rgba(${myColorRgb[0]},${myColorRgb[1]},${myColorRgb[2]},0.18) 0%, rgba(${theirColorRgb[0]},${theirColorRgb[1]},${theirColorRgb[2]},0.18) 100%)`, border: '1.5px solid rgba(255,255,255,0.7)', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
         <span className="absolute top-3 left-5 text-6xl leading-none select-none" style={{ color: `rgba(${myColorRgb[0]},${myColorRgb[1]},${myColorRgb[2]},0.2)`, fontFamily: 'Georgia, serif' }}>&ldquo;</span>
         <p className="text-base leading-relaxed text-center relative z-10 pt-3" style={{ fontFamily: 'Georgia, serif', color: 'rgba(0,0,0,0.72)', fontStyle: 'italic' }}>{sentence}</p>
-        <p className="text-center text-xs mt-4 font-medium" style={{ color: 'rgba(0,0,0,0.3)' }}>{myName} &amp; {theirName}</p>
+        <p className="text-center text-xs mt-4 font-medium" style={{ color: 'rgba(0,0,0,0.3)' }}>
+          {mode === 'shared' ? `${myName} & ${theirName}` : mode === 'defaults' ? 'Your relational defaults' : myName}
+        </p>
       </div>
 
-      {/* ── Alignment by Area (% cards) ── */}
+      {/* ── % cards (Alignment or Openness by Area) ── */}
       <div>
-        <p className="px-6 text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: 'rgba(0,0,0,0.3)' }}>Alignment by Area · tap to explore</p>
+        <p className="px-6 text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: 'rgba(0,0,0,0.3)' }}>
+          {isSingle ? 'Openness by Area · tap to explore' : 'Alignment by Area · tap to explore'}
+        </p>
         <div className="flex gap-3 px-5 overflow-x-auto pb-1">
           {[...catScores].sort((a, b) => b.ratio - a.ratio).map((cat) => {
             const [r, g, b] = hexToRgb(cat.color);
@@ -974,16 +1014,42 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
         </div>
       </div>
 
-      {/* ── Green Zone / Red Zone card ── */}
+      {/* ── Yes's / No's zone card ── */}
       {(greenZone.length > 0 || sharedNonWants.length > 0) && (
         <ZoneSwiper
           greenZone={greenZone} sharedNonWants={sharedNonWants}
           myInitial={myInitial} theirInitial={theirInitial}
+          isSingle={isSingle}
         />
       )}
 
-      {/* ── Tension Explorer ── */}
-      {tension.length > 0 && (
+      {/* ── Strong Commitments (single / defaults only) ── */}
+      {isSingle && mustHaves.length > 0 && (
+        <div className="mx-5">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2 h-2 rounded-full" style={{ background: '#009483' }} />
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.3)' }}>
+              {mode === 'defaults' ? 'Your Anchors' : 'Strong Commitments'}
+            </p>
+            <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.2)' }}>{mustHaves.length} must-haves</span>
+          </div>
+          <div className="rounded-3xl px-5 py-4" style={{ background: 'rgba(0,148,131,0.04)', border: '1.5px solid rgba(0,148,131,0.14)' }}>
+            <div className="flex flex-wrap gap-2">
+              {mustHaves.map((d) => {
+                const [r, g, b] = hexToRgb(d.categoryColor);
+                return (
+                  <span key={d.subcategory} className="text-xs px-3 py-1.5 rounded-full font-medium" style={{ background: `rgba(${r},${g},${b},0.12)`, color: `rgba(${r},${g},${b},1)`, border: `1px solid rgba(${r},${g},${b},0.25)` }}>
+                    {d.subcategory}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tension Explorer (shared only) ── */}
+      {mode === 'shared' && tension.length > 0 && (
         <div className="mx-5">
           <div className="flex items-center gap-2 mb-3">
             <span className="w-2 h-2 rounded-full" style={{ background: '#D47020' }} />
@@ -1000,8 +1066,8 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
         </div>
       )}
 
-      {/* ── Diverges from your defaults ── */}
-      {divergences.length > 0 && (
+      {/* ── Diverges from your defaults (single only) ── */}
+      {mode === 'single' && divergences.length > 0 && (
         <div className="mx-5">
           <div className="flex items-center gap-2 mb-3">
             <span className="w-2 h-2 rounded-full" style={{ background: '#7B68B0' }} />

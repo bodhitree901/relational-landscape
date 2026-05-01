@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MENU_CATEGORIES, MenuTier, MenuRating, MenuProfile, MENU_TIER_COLORS } from '../lib/menu-categories';
+import ComparisonSummaryProto from '../components/ComparisonSummaryProto';
+import { Connection, Tier } from '../lib/types';
 import ChipPool, { ChipRating } from '../components/ChipPool';
 import { MENU_TIERS } from '../lib/tier-configs';
 import Link from 'next/link';
@@ -343,7 +345,25 @@ export default function MyMenuPage() {
           </button>
         </div>
 
-        <div className="px-5 space-y-3">
+        {/* Summary view */}
+        {(() => {
+          const menuConn: Connection = {
+            id: 'my-map',
+            name: myName || 'My Map',
+            emoji: '',
+            color: '#C5A3CF',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            categories: menuProfiles.map(p => ({
+              categoryId: p.categoryId,
+              ratings: p.ratings.map(r => ({ subcategory: r.item, tier: r.tier as Tier })),
+            })),
+            timeRhythm: { communication: [], inPerson: [], custom: [] },
+          };
+          return <ComparisonSummaryProto myConnection={menuConn} myName={myName || 'My Map'} mode="defaults" />;
+        })()}
+
+        <div className="px-5 mt-6 space-y-3">
           {TIER_CONFIG.map(({ key, label, gradient, shadowColor, includeUnrated }) => {
             const groups = getTierGroups(key, includeUnrated);
             const totalItems = groups.reduce((sum, g) => sum + g.items.length, 0);
