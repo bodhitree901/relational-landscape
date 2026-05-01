@@ -1,38 +1,46 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Connection } from '../lib/types';
-import { getConnections } from '../lib/storage';
+import { getConnections, getConnection } from '../lib/storage';
 import CategoryCardsPath from '../components/CategoryCardsPath';
 import Link from 'next/link';
+import { Suspense } from 'react';
 
-export default function PrototypePage() {
+function PrototypeInner() {
+  const searchParams = useSearchParams();
+  const idParam = searchParams.get('id');
+
   const [connections, setConnections] = useState<Connection[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
     const all = getConnections();
     setConnections(all);
-    if (all.length > 0) setSelected(all[0].id);
-  }, []);
+    if (idParam) {
+      setSelected(idParam);
+    } else if (all.length > 0) {
+      setSelected(all[0].id);
+    }
+  }, [idParam]);
 
-  const connection = connections.find((c) => c.id === selected) || null;
+  const connection = selected ? (getConnection(selected) || connections.find((c) => c.id === selected) || null) : null;
 
   return (
     <div className="min-h-dvh pb-16">
       <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-        <Link href="/" className="text-sm opacity-60 hover:opacity-100 transition-opacity">
-          &larr; Home
+        <Link href={connection ? `/connection/${connection.id}` : '/'} className="text-sm opacity-60 hover:opacity-100 transition-opacity">
+          &larr; Back
         </Link>
         <span
           className="text-xs px-3 py-1 rounded-full font-medium"
           style={{ background: 'rgba(197,163,207,0.25)', color: '#9B6EAF' }}
         >
-          Prototype
+          ✦ Prototype
         </span>
       </div>
 
-      {/* Connection picker */}
       {connections.length > 1 && (
         <div className="px-5 mb-4 flex gap-2 overflow-x-auto pb-1">
           {connections.map((c) => (
@@ -59,7 +67,6 @@ export default function PrototypePage() {
             </h1>
             <p className="text-xs opacity-40 mt-1">Connection Landscape — path view</p>
           </div>
-
           <CategoryCardsPath myConnection={connection} />
         </>
       ) : (
@@ -69,5 +76,13 @@ export default function PrototypePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PrototypePage() {
+  return (
+    <Suspense>
+      <PrototypeInner />
+    </Suspense>
   );
 }

@@ -287,9 +287,18 @@ export default function ConnectionProfile() {
 
           {/* Act 2: Connection Landscape */}
           <div className="px-5 mb-8">
-            <h2 className="text-2xl font-extrabold uppercase tracking-wide mb-3 px-1" style={{ color: 'rgba(0,0,0,0.7)' }}>
-              Connection Landscape
-            </h2>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h2 className="text-2xl font-extrabold uppercase tracking-wide" style={{ color: 'rgba(0,0,0,0.7)' }}>
+                Connection Landscape
+              </h2>
+              <Link
+                href={`/prototype?id=${connection.id}`}
+                className="text-xs px-3 py-1 rounded-full font-medium transition-all"
+                style={{ background: 'rgba(197,163,207,0.25)', color: '#9B6EAF' }}
+              >
+                ✦ New layout
+              </Link>
+            </div>
             <CategoryCards connection={connection} />
           </div>
 
