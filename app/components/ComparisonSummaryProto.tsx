@@ -265,7 +265,7 @@ function GreenZoneRing({ greenZone, myInitial, theirInitial }: { greenZone: DimD
     return [...map.values()];
   }, [greenZone]);
   const total = greenZone.length;
-  const CX = 80, CY = 80, R = 56, STROKE = 22, SIZE = 180;
+  const CX = 110, CY = 110, R = 85, STROKE = 28;
   const GAP = cats.length > 1 ? 0.06 : 0;
   const available = 2 * Math.PI - GAP * cats.length;
   const segments = useMemo(() => {
@@ -282,30 +282,17 @@ function GreenZoneRing({ greenZone, myInitial, theirInitial }: { greenZone: DimD
   const activeCatData = cats.find(c => c.id === activeCatId);
   return (
     <>
-      <div className="flex flex-col items-center">
-        <svg width={SIZE} height={SIZE} style={{ overflow: 'visible' }}>
-          <circle cx={CX} cy={CY} r={R} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth={STROKE} />
-          {segments.map(({ cat, path }) => {
-            const [r, g, b] = hexToRgb(cat.color);
-            const isActive = activeCatId === cat.id;
-            return <path key={cat.id} d={path} fill="none" stroke={`rgba(${r},${g},${b},${isActive ? 1 : 0.85})`} strokeWidth={isActive ? STROKE + 6 : STROKE} strokeLinecap="round" style={{ cursor: 'pointer', transition: 'stroke-width 0.2s ease, stroke 0.2s ease' }} onClick={() => setActiveCatId(isActive ? null : cat.id)} />;
-          })}
-          <text x={CX} y={CY - 8} textAnchor="middle" fontSize="26" fontWeight="800" fill="rgba(0,0,0,0.72)" fontFamily="Georgia, serif">{total}</text>
-          <text x={CX} y={CY + 8} textAnchor="middle" fontSize="8.5" fontWeight="600" fill="rgba(0,0,0,0.32)" letterSpacing="0.8">SHARED YES&apos;S</text>
-        </svg>
-        <div className="flex gap-3 mt-2 overflow-x-auto px-1 pb-0.5" style={{ scrollbarWidth: 'none' }}>
-          {cats.map(cat => {
-            const [r, g, b] = hexToRgb(cat.color);
-            const isActive = activeCatId === cat.id;
-            return (
-              <button key={cat.id} onClick={() => setActiveCatId(isActive ? null : cat.id)} className="flex items-center gap-1.5 text-xs transition-all shrink-0" style={{ color: isActive ? `rgba(${r},${g},${b},1)` : 'rgba(0,0,0,0.45)', fontWeight: isActive ? 700 : 500 }}>
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: `rgba(${r},${g},${b},${isActive ? 1 : 0.7})`, transform: isActive ? 'scale(1.3)' : 'scale(1)', transition: 'transform 0.15s' }} />
-                {cat.name}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <svg viewBox="0 0 220 220" width="100%" style={{ display: 'block' }}>
+        <circle cx={CX} cy={CY} r={R} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth={STROKE} />
+        {segments.map(({ cat, path }) => {
+          const [r, g, b] = hexToRgb(cat.color);
+          const isActive = activeCatId === cat.id;
+          return <path key={cat.id} d={path} fill="none" stroke={`rgba(${r},${g},${b},${isActive ? 1 : 0.85})`} strokeWidth={isActive ? STROKE + 7 : STROKE} strokeLinecap="round" style={{ cursor: 'pointer', transition: 'stroke-width 0.2s ease, stroke 0.2s ease' }} onClick={() => setActiveCatId(isActive ? null : cat.id)} />;
+        })}
+        <text x={CX} y={CY - 10} textAnchor="middle" fontSize="44" fontWeight="800" fill="rgba(0,0,0,0.72)" fontFamily="Georgia, serif">{total}</text>
+        <text x={CX} y={CY + 12} textAnchor="middle" fontSize="11" fontWeight="600" fill="rgba(0,0,0,0.30)" letterSpacing="1">SHARED YES&apos;S</text>
+        <text x={CX} y={CY + 28} textAnchor="middle" fontSize="9" fontWeight="500" fill="rgba(0,0,0,0.18)" letterSpacing="0.3">tap to explore</text>
+      </svg>
       {activeCatData && <GreenZonePopup catName={activeCatData.name} catColor={activeCatData.color} dims={activeCatData.dims} myInitial={myInitial} theirInitial={theirInitial} onClose={() => setActiveCatId(null)} />}
     </>
   );
