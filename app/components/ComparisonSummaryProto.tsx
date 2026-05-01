@@ -739,6 +739,185 @@ function TensionExplorer({ tension, catScores, myInitial, theirInitial }: {
   );
 }
 
+// ── Tier Sheet (defaults mode popup) ─────────────────────────────────────────
+
+const TIER_LABELS_FULL: Record<Tier, string> = {
+  'must-have': "Must Have's",
+  'open': 'Open For',
+  'maybe': "Maybe's",
+  'off-limits': 'Not Available For',
+};
+
+const TIER_RING_COLORS: Record<Tier, string> = {
+  'must-have': '#80C9C1',
+  'open': '#81CC73',
+  'maybe': '#F5D06E',
+  'off-limits': '#F4A89A',
+};
+
+function TierSheet({ tier, dims, onClose }: { tier: Tier; dims: DimData[]; onClose: () => void }) {
+  const [peekItem, setPeekItem] = useState<string | null>(null);
+  const color = TIER_RING_COLORS[tier];
+  const [r, g, b] = hexToRgb(color);
+
+  const byCategory = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; color: string; items: DimData[] }>();
+    for (const d of dims) {
+      if (!map.has(d.categoryId)) map.set(d.categoryId, { id: d.categoryId, name: d.categoryName, color: d.categoryColor, items: [] });
+      map.get(d.categoryId)!.items.push(d);
+    }
+    return [...map.values()];
+  }, [dims]);
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl overflow-hidden" style={{ background: 'var(--background)', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.28s cubic-bezier(0.34,1.2,0.64,1)' }}>
+        <div className="px-6 pt-4 pb-4 shrink-0" style={{ background: `linear-gradient(135deg, rgba(${r},${g},${b},0.30), rgba(${r},${g},${b},0.15))` }}>
+          <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: `rgba(${r},${g},${b},0.5)` }} />
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-extrabold uppercase tracking-wide" style={{ color: 'rgba(0,0,0,0.75)' }}>{TIER_LABELS_FULL[tier]}</h3>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>{dims.length} item{dims.length !== 1 ? 's' : ''}</p>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background: `rgba(${r},${g},${b},0.2)`, color: 'rgba(0,0,0,0.4)' }}>✕</button>
+          </div>
+        </div>
+        <div className="overflow-y-auto px-5 pb-8 pt-3 space-y-4">
+          {byCategory.map((cat) => {
+            const [cr, cg, cb] = hexToRgb(cat.color);
+            return (
+              <div key={cat.id}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: cat.color }}>{cat.name}</p>
+                <div className="space-y-1">
+                  {cat.items.map((d) => (
+                    <div key={d.subcategory}>
+                      <button
+                        onClick={() => setPeekItem(peekItem === d.subcategory ? null : d.subcategory)}
+                        className="w-full flex items-center gap-3 py-2 px-3 rounded-xl transition-all active:scale-[0.98] text-left"
+                        style={{ background: peekItem === d.subcategory ? `rgba(${cr},${cg},${cb},0.12)` : `rgba(${r},${g},${b},0.08)`, border: `1.5px solid rgba(${r},${g},${b},0.18)` }}
+                      >
+                        {SUBCATEGORY_DEFINITIONS[d.subcategory] && (
+                          <span className="text-[10px] px-1 py-0.5 rounded-full shrink-0" style={{ background: `rgba(${r},${g},${b},0.18)`, color: `rgba(${r},${g},${b},1)` }}>ⓘ</span>
+                        )}
+                        <span className="flex-1 text-sm font-medium" style={{ color: 'rgba(0,0,0,0.72)' }}>{d.subcategory}</span>
+                      </button>
+                      {peekItem === d.subcategory && SUBCATEGORY_DEFINITIONS[d.subcategory] && (
+                        <div className="ml-2 mr-1 mb-1 px-3 py-2 rounded-xl text-xs leading-relaxed" style={{ background: `rgba(${r},${g},${b},0.08)`, color: 'rgba(0,0,0,0.5)', animation: 'tooltip-enter 0.15s ease-out' }}>
+                          {SUBCATEGORY_DEFINITIONS[d.subcategory]}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
+    </>
+  );
+}
+
+// ── Quadrant Ring (defaults mode) ─────────────────────────────────────────────
+
+function QuadrantRing({ allDims }: { allDims: DimData[] }) {
+  const [activeTier, setActiveTier] = useState<Tier | null>(null);
+
+  const TIERS: Tier[] = ['must-have', 'open', 'maybe', 'off-limits'];
+
+  const tierGroups = useMemo(() => {
+    return TIERS.map((tier) => ({
+      tier,
+      dims: allDims.filter((d) => d.myTier === tier),
+    }));
+  }, [allDims]);
+
+  const total = allDims.length;
+  const CX = 110, CY = 110, R = 85, STROKE = 32;
+  const nonEmpty = tierGroups.filter((g) => g.dims.length > 0);
+  const GAP = nonEmpty.length > 1 ? 0.06 : 0;
+  const available = 2 * Math.PI - GAP * nonEmpty.length;
+
+  const segments = useMemo(() => {
+    let angle = -Math.PI / 2;
+    return nonEmpty.map((g) => {
+      const span = (g.dims.length / total) * available;
+      const start = angle + GAP / 2;
+      const end = start + span;
+      angle = end + GAP / 2;
+      const x1 = CX + R * Math.cos(start), y1 = CY + R * Math.sin(start);
+      const x2 = CX + R * Math.cos(end), y2 = CY + R * Math.sin(end);
+      const [r, g2, b] = hexToRgb(TIER_RING_COLORS[g.tier]);
+      return { ...g, path: `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${R} ${R} 0 ${span > Math.PI ? 1 : 0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`, r, g: g2, b };
+    });
+  }, [nonEmpty, total, available]);
+
+  const activeDims = activeTier ? tierGroups.find((g) => g.tier === activeTier)?.dims ?? [] : [];
+
+  return (
+    <div className="mx-5">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="w-2 h-2 rounded-full" style={{ background: '#80C9C1' }} />
+        <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.3)' }}>Your Map · tap to explore</p>
+      </div>
+      <div className="rounded-3xl overflow-hidden" style={{ background: 'rgba(0,0,0,0.02)', border: '1.5px solid rgba(0,0,0,0.07)' }}>
+        <div className="px-5 py-6">
+          <svg viewBox="0 0 220 220" width="100%" style={{ display: 'block' }}>
+            <circle cx={CX} cy={CY} r={R} fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth={STROKE} />
+            {segments.map(({ tier, path, r, g, b }) => {
+              const isActive = activeTier === tier;
+              return (
+                <path
+                  key={tier}
+                  d={path}
+                  fill="none"
+                  stroke={`rgba(${r},${g},${b},${isActive ? 1 : 0.8})`}
+                  strokeWidth={isActive ? STROKE + 7 : STROKE}
+                  strokeLinecap="round"
+                  style={{ cursor: 'pointer', transition: 'stroke-width 0.2s ease, stroke 0.2s ease' }}
+                  onClick={() => setActiveTier(isActive ? null : tier)}
+                />
+              );
+            })}
+            <text x={CX} y={CY - 8} textAnchor="middle" fontSize="40" fontWeight="800" fill="rgba(0,0,0,0.72)" fontFamily="Georgia, serif">{total}</text>
+            <text x={CX} y={CY + 13} textAnchor="middle" fontSize="10" fontWeight="600" fill="rgba(0,0,0,0.28)" letterSpacing="0.8">ITEMS MAPPED</text>
+            <text x={CX} y={CY + 28} textAnchor="middle" fontSize="8" fontWeight="500" fill="rgba(0,0,0,0.16)" letterSpacing="0.3">tap a segment</text>
+          </svg>
+          {/* Tier legend */}
+          <div className="flex flex-wrap gap-2 justify-center mt-3">
+            {nonEmpty.map(({ tier, dims }) => {
+              const color = TIER_RING_COLORS[tier];
+              const [r, g, b] = hexToRgb(color);
+              const isActive = activeTier === tier;
+              return (
+                <button
+                  key={tier}
+                  onClick={() => setActiveTier(isActive ? null : tier)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95"
+                  style={{
+                    background: isActive ? `rgba(${r},${g},${b},0.25)` : `rgba(${r},${g},${b},0.12)`,
+                    color: 'rgba(0,0,0,0.65)',
+                    border: `1.5px solid rgba(${r},${g},${b},${isActive ? 0.5 : 0.22})`,
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                  {TIER_LABELS_FULL[tier]}
+                  <span style={{ color: 'rgba(0,0,0,0.35)' }}>{dims.length}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      {activeTier && activeDims.length > 0 && (
+        <TierSheet tier={activeTier} dims={activeDims} onClose={() => setActiveTier(null)} />
+      )}
+    </div>
+  );
+}
+
 // ── Zone Swiper ───────────────────────────────────────────────────────────────
 
 function ZoneSwiper({ greenZone, sharedNonWants, myInitial, theirInitial, isSingle }: {
@@ -976,6 +1155,7 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
   const theirColorRgb = hexToRgb(theirConnection?.color || '#89CFF0');
 
   const mustHaves = greenZone.filter(d => d.myTier === 'must-have');
+  const allDimsFlat = catScores.flatMap(c => c.dims);
 
   return (
     <>
@@ -1014,8 +1194,10 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
         </div>
       </div>
 
-      {/* ── Yes's / No's zone card ── */}
-      {(greenZone.length > 0 || sharedNonWants.length > 0) && (
+      {/* ── Zone / Quadrant visual ── */}
+      {mode === 'defaults' ? (
+        <QuadrantRing allDims={allDimsFlat} />
+      ) : (greenZone.length > 0 || sharedNonWants.length > 0) && (
         <ZoneSwiper
           greenZone={greenZone} sharedNonWants={sharedNonWants}
           myInitial={myInitial} theirInitial={theirInitial}
@@ -1023,13 +1205,13 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
         />
       )}
 
-      {/* ── Strong Commitments (single / defaults only) ── */}
-      {isSingle && mustHaves.length > 0 && (
+      {/* ── Strong Commitments (single only) ── */}
+      {mode === 'single' && mustHaves.length > 0 && (
         <div className="mx-5">
           <div className="flex items-center gap-2 mb-3">
             <span className="w-2 h-2 rounded-full" style={{ background: '#009483' }} />
             <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.3)' }}>
-              {mode === 'defaults' ? 'Your Anchors' : 'Strong Commitments'}
+              Strong Commitments
             </p>
             <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.2)' }}>{mustHaves.length} must-haves</span>
           </div>
