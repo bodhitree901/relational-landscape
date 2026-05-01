@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Connection, Tier, TIER_ORDER } from '../lib/types';
 import { DEFAULT_CATEGORIES } from '../lib/categories';
 import { SUBCATEGORY_DEFINITIONS } from '../lib/definitions';
@@ -307,6 +307,133 @@ function GreenZoneRing({ greenZone, myInitial, theirInitial }: { greenZone: DimD
         </div>
       </div>
       {activeCatData && <GreenZonePopup catName={activeCatData.name} catColor={activeCatData.color} dims={activeCatData.dims} myInitial={myInitial} theirInitial={theirInitial} onClose={() => setActiveCatId(null)} />}
+    </>
+  );
+}
+
+// ── Red Zone ──────────────────────────────────────────────────────────────────
+
+function RedZonePopup({ catName, catColor, dims, myInitial, theirInitial, onClose }: {
+  catName: string; catColor: string; dims: DimData[]; myInitial: string; theirInitial: string; onClose: () => void;
+}) {
+  const [peekItem, setPeekItem] = useState<string | null>(null);
+  const [r, g, b] = hexToRgb(catColor);
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl overflow-hidden" style={{ background: 'var(--background)', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '78vh', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.28s cubic-bezier(0.34,1.2,0.64,1)' }}>
+        <div className="px-6 pt-4 pb-4 shrink-0" style={{ background: `linear-gradient(135deg, rgba(${r},${g},${b},0.18), rgba(${r},${g},${b},0.08))` }}>
+          <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: `rgba(${r},${g},${b},0.35)` }} />
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-extrabold uppercase tracking-wide" style={{ color: 'rgba(0,0,0,0.75)' }}>{catName}</h3>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>{dims.length} shared no&apos;s in this area</p>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background: `rgba(${r},${g},${b},0.12)`, color: 'rgba(0,0,0,0.4)' }}>✕</button>
+          </div>
+        </div>
+        <div className="overflow-y-auto px-5 pb-8 pt-3 space-y-2">
+          {dims.map((d) => {
+            const bothOff = d.myTier === 'off-limits' && d.theirTier === 'off-limits';
+            return (
+              <div key={d.subcategory}>
+                <button onClick={() => setPeekItem(peekItem === d.subcategory ? null : d.subcategory)} className="w-full flex items-center gap-3 py-2.5 px-3 rounded-2xl transition-all active:scale-[0.98]" style={{ background: peekItem === d.subcategory ? `rgba(${r},${g},${b},0.1)` : `rgba(${r},${g},${b},0.05)`, border: `1.5px solid rgba(${r},${g},${b},${bothOff ? 0.3 : 0.12})` }}>
+                  <span className="text-[10px] px-1 py-0.5 rounded-full shrink-0" style={{ background: `rgba(${r},${g},${b},0.12)`, color: `rgba(${r},${g},${b},1)` }}>ⓘ</span>
+                  <span className="flex-1 text-left text-sm font-medium" style={{ color: 'rgba(0,0,0,0.65)' }}>{d.subcategory}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ background: TIER_COLORS[d.myTier] }}>{myInitial}</span>
+                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2" style={{ borderColor: TIER_COLORS[d.theirTier], color: TIER_COLORS[d.theirTier], background: TIER_BG[d.theirTier] }}>{theirInitial}</span>
+                  </div>
+                  {bothOff && <span className="text-xs shrink-0" style={{ color: TIER_COLORS['off-limits'] }}>✕</span>}
+                </button>
+                {peekItem === d.subcategory && SUBCATEGORY_DEFINITIONS[d.subcategory] && (
+                  <div className="ml-2 mr-1 mb-1 px-3 py-2 rounded-xl text-xs leading-relaxed" style={{ background: `rgba(${r},${g},${b},0.07)`, color: 'rgba(0,0,0,0.5)', animation: 'tooltip-enter 0.15s ease-out' }}>{SUBCATEGORY_DEFINITIONS[d.subcategory]}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
+    </>
+  );
+}
+
+function RedZonePentagon({ redZone, myInitial, theirInitial }: { redZone: DimData[]; myInitial: string; theirInitial: string }) {
+  const [activeCatId, setActiveCatId] = useState<string | null>(null);
+  const cats = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; color: string; dims: DimData[] }>();
+    for (const d of redZone) {
+      if (!map.has(d.categoryId)) map.set(d.categoryId, { id: d.categoryId, name: d.categoryName, color: d.categoryColor, dims: [] });
+      map.get(d.categoryId)!.dims.push(d);
+    }
+    return [...map.values()];
+  }, [redZone]);
+  const total = redZone.length;
+
+  const CX = 90, CY = 90, R = 55, STROKE = 22, SIZE = 180;
+  const vertices = Array.from({ length: 5 }, (_, i) => {
+    const angle = -Math.PI / 2 + (2 * Math.PI * i) / 5;
+    return { x: CX + R * Math.cos(angle), y: CY + R * Math.sin(angle) };
+  });
+  const pentagonPath = vertices.map((v, i) => `${i === 0 ? 'M' : 'L'} ${v.x.toFixed(2)} ${v.y.toFixed(2)}`).join(' ') + ' Z';
+
+  const segments = useMemo(() => {
+    const gap = cats.length > 1 ? 2 : 0;
+    const available = 100 - gap * cats.length;
+    let offset = 0;
+    return cats.map((cat) => {
+      const len = (cat.dims.length / total) * available;
+      const start = offset + gap / 2;
+      offset += len + gap;
+      return { cat, startPct: start, lenPct: len };
+    });
+  }, [cats, total]);
+
+  const activeCatData = cats.find(c => c.id === activeCatId);
+  return (
+    <>
+      <div className="flex flex-col items-center">
+        <svg width={SIZE} height={SIZE} style={{ overflow: 'visible' }}>
+          <path d={pentagonPath} pathLength="100" fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth={STROKE} strokeLinejoin="round" strokeLinecap="round" />
+          {segments.map(({ cat, startPct, lenPct }) => {
+            const [r, g, b] = hexToRgb(cat.color);
+            const isActive = activeCatId === cat.id;
+            return (
+              <path
+                key={cat.id}
+                d={pentagonPath}
+                pathLength="100"
+                fill="none"
+                stroke={`rgba(${r},${g},${b},${isActive ? 0.95 : 0.6})`}
+                strokeWidth={isActive ? STROKE + 6 : STROKE}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                strokeDasharray={`${lenPct.toFixed(2)} 9999`}
+                strokeDashoffset={(-startPct).toFixed(2)}
+                style={{ cursor: 'pointer', transition: 'stroke-width 0.2s ease, stroke 0.2s ease' }}
+                onClick={() => setActiveCatId(isActive ? null : cat.id)}
+              />
+            );
+          })}
+          <text x={CX} y={CY - 8} textAnchor="middle" fontSize="26" fontWeight="800" fill="rgba(0,0,0,0.72)" fontFamily="Georgia, serif">{total}</text>
+          <text x={CX} y={CY + 8} textAnchor="middle" fontSize="8.5" fontWeight="600" fill="rgba(0,0,0,0.32)" letterSpacing="0.8">SHARED NO&apos;S</text>
+        </svg>
+        <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-1 px-4">
+          {cats.map(cat => {
+            const [r, g, b] = hexToRgb(cat.color);
+            const isActive = activeCatId === cat.id;
+            return (
+              <button key={cat.id} onClick={() => setActiveCatId(isActive ? null : cat.id)} className="flex items-center gap-1.5 text-xs transition-all" style={{ color: isActive ? `rgba(${r},${g},${b},1)` : 'rgba(0,0,0,0.45)', fontWeight: isActive ? 700 : 500 }}>
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: `rgba(${r},${g},${b},${isActive ? 1 : 0.6})`, transform: isActive ? 'scale(1.3)' : 'scale(1)', transition: 'transform 0.15s' }} />
+                {cat.name} <span style={{ opacity: 0.6 }}>({cat.dims.length})</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[10px] mt-1" style={{ color: 'rgba(0,0,0,0.25)' }}>tap a segment</p>
+      </div>
+      {activeCatData && <RedZonePopup catName={activeCatData.name} catColor={activeCatData.color} dims={activeCatData.dims} myInitial={myInitial} theirInitial={theirInitial} onClose={() => setActiveCatId(null)} />}
     </>
   );
 }
@@ -632,6 +759,8 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
   const myInitial = myName[0]?.toUpperCase() || 'A';
   const theirInitial = theirName[0]?.toUpperCase() || 'B';
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
+  const [activeZone, setActiveZone] = useState(0);
+  const zoneScrollRef = useRef<HTMLDivElement>(null);
 
   const { catScores, greenZone, tension, sharedNonWants } = useMemo(() => {
     const theirMap = new Map<string, Map<string, Tier>>();
@@ -682,6 +811,7 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
   const theirColorRgb = hexToRgb(theirConnection.color || '#89CFF0');
 
   return (
+    <>
     <div className="space-y-7 pb-8">
 
       {/* ── AI Sentence ── */}
@@ -713,17 +843,57 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
         </div>
       </div>
 
-      {/* ── Green Zone Ring ── */}
-      {greenZone.length > 0 && (
+      {/* ── Green Zone / Red Zone Swiper ── */}
+      {(greenZone.length > 0 || sharedNonWants.length > 0) && (
         <div className="mx-5">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="w-2 h-2 rounded-full" style={{ background: '#5BA84D' }} />
-            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.3)' }}>The Green Zone</p>
-            <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.2)' }}>tap a segment</span>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full transition-all" style={{ background: activeZone === 0 ? '#5BA84D' : 'rgba(0,0,0,0.15)' }} />
+              <p className="text-[10px] font-semibold uppercase tracking-widest transition-all" style={{ color: activeZone === 0 ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.2)' }}>Green Zone</p>
+            </div>
+            <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.18)' }}>·</span>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full transition-all" style={{ background: activeZone === 1 ? '#D47020' : 'rgba(0,0,0,0.15)' }} />
+              <p className="text-[10px] font-semibold uppercase tracking-widest transition-all" style={{ color: activeZone === 1 ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.2)' }}>Red Zone</p>
+            </div>
+            <span className="ml-auto text-[10px]" style={{ color: 'rgba(0,0,0,0.18)' }}>swipe</span>
           </div>
-          <div className="rounded-3xl px-5 py-6" style={{ background: 'rgba(91,168,77,0.06)', border: '1.5px solid rgba(91,168,77,0.18)' }}>
-            <GreenZoneRing greenZone={greenZone} myInitial={myInitial} theirInitial={theirInitial} />
+          <div
+            ref={zoneScrollRef}
+            className="zone-swiper"
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              setActiveZone(Math.round(el.scrollLeft / el.offsetWidth));
+            }}
+            style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}
+          >
+            <div style={{ minWidth: '100%', scrollSnapAlign: 'start', flexShrink: 0 }}>
+              <div className="rounded-3xl px-5 py-6" style={{ background: 'rgba(91,168,77,0.06)', border: '1.5px solid rgba(91,168,77,0.18)' }}>
+                {greenZone.length > 0
+                  ? <GreenZoneRing greenZone={greenZone} myInitial={myInitial} theirInitial={theirInitial} />
+                  : <p className="text-center text-sm py-8 opacity-30">No shared yes&apos;s yet</p>
+                }
+              </div>
+            </div>
+            <div style={{ minWidth: '100%', scrollSnapAlign: 'start', flexShrink: 0 }}>
+              <div className="rounded-3xl px-5 py-6" style={{ background: 'rgba(212,112,32,0.06)', border: '1.5px solid rgba(212,112,32,0.18)' }}>
+                {sharedNonWants.length > 0
+                  ? <RedZonePentagon redZone={sharedNonWants} myInitial={myInitial} theirInitial={theirInitial} />
+                  : <p className="text-center text-sm py-8 opacity-30">No shared no&apos;s yet</p>
+                }
+              </div>
+            </div>
           </div>
+          <div className="flex justify-center gap-2 mt-3">
+            {[0, 1].map(i => (
+              <div
+                key={i}
+                className="rounded-full transition-all"
+                style={{ width: activeZone === i ? 16 : 8, height: 8, background: activeZone === i ? (i === 0 ? '#5BA84D' : '#D47020') : 'rgba(0,0,0,0.12)' }}
+              />
+            ))}
+          </div>
+          <style>{`.zone-swiper::-webkit-scrollbar { display: none; }`}</style>
         </div>
       )}
 
@@ -743,31 +913,12 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
         </div>
       )}
 
-      {/* ── What Isn't This Connection ── */}
-      {sharedNonWants.length > 0 && (
-        <div className="mx-5">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="w-2 h-2 rounded-full" style={{ background: 'rgba(0,0,0,0.2)' }} />
-            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.3)' }}>What Isn&apos;t This Connection</p>
-            <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.2)' }}>you both passed</span>
-          </div>
-          <div className="rounded-3xl px-5 py-5" style={{ background: 'rgba(0,0,0,0.03)', border: '1.5px solid rgba(0,0,0,0.07)' }}>
-            <p className="text-xs mb-3" style={{ color: 'rgba(0,0,0,0.35)' }}>Neither of you is looking for this here — and that&apos;s its own kind of clarity.</p>
-            <div className="flex flex-wrap gap-2">
-              {sharedNonWants.slice(0, 12).map(d => (
-                <div key={`${d.categoryId}-${d.subcategory}`} className="px-3 py-1 rounded-full text-xs" style={{ background: 'rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.08)', color: 'rgba(0,0,0,0.38)' }}>{d.subcategory}</div>
-              ))}
-              {sharedNonWants.length > 12 && <div className="px-3 py-1 rounded-full text-xs" style={{ color: 'rgba(0,0,0,0.25)' }}>+{sharedNonWants.length - 12} more</div>}
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
 
     {activeCatId && (() => {
       const cat = catScores.find(c => c.id === activeCatId);
       return cat ? <CategoryHeatmapPopup cat={cat} myInitial={myInitial} theirInitial={theirInitial} onClose={() => setActiveCatId(null)} /> : null;
     })()}
+    </>
   );
 }
