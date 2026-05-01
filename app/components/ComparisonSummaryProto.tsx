@@ -1,0 +1,465 @@
+'use client';
+
+import { useMemo } from 'react';
+import { Connection, Tier } from '../lib/types';
+import { DEFAULT_CATEGORIES } from '../lib/categories';
+
+function hexToRgb(hex: string) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return [r, g, b] as const;
+}
+
+const TIER_COLORS: Record<Tier, string> = {
+  'must-have': '#007A6B',
+  'open': '#5BA84D',
+  'maybe': '#B8A520',
+  'off-limits': '#D47020',
+};
+
+const TIER_BG: Record<Tier, string> = {
+  'must-have': '#E6F4F1',
+  'open': '#EBF5E8',
+  'maybe': '#FAF6DC',
+  'off-limits': '#FAF0E6',
+};
+
+const TIER_SHORT: Record<Tier, string> = {
+  'must-have': 'Want',
+  'open': 'Open',
+  'maybe': 'Unsure',
+  'off-limits': 'N/A',
+};
+
+interface DimData {
+  subcategory: string;
+  categoryId: string;
+  categoryName: string;
+  categoryColor: string;
+  myTier: Tier;
+  theirTier: Tier;
+}
+
+interface CatScore {
+  id: string;
+  name: string;
+  color: string;
+  alignedCount: number;
+  totalCount: number;
+  ratio: number;
+}
+
+function isPositive(t: Tier) {
+  return t === 'must-have' || t === 'open';
+}
+
+function generateSentence(
+  greenZone: DimData[],
+  tension: DimData[],
+  catScores: CatScore[],
+  myName: string,
+  theirName: string,
+): string {
+  const sorted = [...catScores].sort((a, b) => b.ratio - a.ratio);
+  const topCat = sorted[0];
+  const bottomCat = sorted[sorted.length - 1];
+  const totalDims = catScores.reduce((s, c) => s + c.totalCount, 0);
+  const totalAligned = catScores.reduce((s, c) => s + c.alignedCount, 0);
+  const pct = totalDims > 0 ? Math.round((totalAligned / totalDims) * 100) : 0;
+
+  const mutual = greenZone.filter((d) => d.myTier === 'must-have' && d.theirTier === 'must-have');
+  const anchor = mutual[0]?.subcategory;
+  const anchor2 = mutual[1]?.subcategory;
+
+  if (pct >= 68) {
+    return `${myName} and ${theirName} are deeply aligned — especially in ${topCat?.name || 'most areas'}. ${anchor && anchor2 ? `${anchor} and ${anchor2} stand out as shared anchors.` : anchor ? `${anchor} is a clear shared anchor.` : 'There\'s a lot of mutual yes here.'}`;
+  } else if (pct >= 42) {
+    return `This connection has real depth in ${topCat?.name || 'several areas'}${anchor ? `, with ${anchor} as a touchstone both of you share` : ''}. ${bottomCat && bottomCat.id !== topCat?.id ? `${bottomCat.name} holds the most room for honest conversation.` : ''}`.trim();
+  } else {
+    return `${myName} and ${theirName} are navigating real differences — the strongest common ground lives in ${topCat?.name || 'a few areas'}. ${tension.length > 0 ? 'A few honest conversations could open a lot of doors.' : ''}`;
+  }
+}
+
+interface Props {
+  myConnection: Connection;
+  theirConnection: Connection;
+  myName: string;
+  theirName: string;
+}
+
+export default function ComparisonSummaryProto({ myConnection, theirConnection, myName, theirName }: Props) {
+  const myInitial = myName[0]?.toUpperCase() || 'A';
+  const theirInitial = theirName[0]?.toUpperCase() || 'B';
+
+  const { allDims, catScores, greenZone, tension, worthConvo, sharedNonWants } = useMemo(() => {
+    const theirMap = new Map<string, Map<string, Tier>>();
+    for (const cat of theirConnection.categories) {
+      const m = new Map<string, Tier>();
+      for (const r of cat.ratings) m.set(r.subcategory, r.tier);
+      theirMap.set(cat.categoryId, m);
+    }
+
+    const allDims: DimData[] = [];
+    const catScores: CatScore[] = [];
+
+    for (const cat of myConnection.categories) {
+      const catDef = DEFAULT_CATEGORIES.find((c) => c.id === cat.categoryId);
+      if (!catDef) continue;
+
+      const theirCat = theirMap.get(cat.categoryId) || new Map<string, Tier>();
+      const myMap = new Map<string, Tier>();
+      for (const r of cat.ratings) myMap.set(r.subcategory, r.tier);
+
+      const allKeys = new Set<string>();
+      cat.ratings.forEach((r) => allKeys.add(r.subcategory));
+      theirCat.forEach((_, k) => allKeys.add(k));
+
+      let aligned = 0;
+      for (const dim of allKeys) {
+        const myTier = myMap.get(dim) || 'off-limits';
+        const theirTier = theirCat.get(dim) || 'off-limits';
+        const isAligned = isPositive(myTier) === isPositive(theirTier);
+        if (isAligned) aligned++;
+        allDims.push({
+          subcategory: dim,
+          categoryId: catDef.id,
+          categoryName: catDef.name,
+          categoryColor: catDef.color,
+          myTier,
+          theirTier,
+        });
+      }
+
+      if (allKeys.size > 0) {
+        catScores.push({
+          id: catDef.id,
+          name: catDef.name,
+          color: catDef.color,
+          alignedCount: aligned,
+          totalCount: allKeys.size,
+          ratio: aligned / allKeys.size,
+        });
+      }
+    }
+
+    const greenZone = allDims.filter((d) => isPositive(d.myTier) && isPositive(d.theirTier));
+    // Tension: one positive, one not — ordered by severity (must-have vs off-limits first)
+    const tension = allDims
+      .filter((d) => isPositive(d.myTier) !== isPositive(d.theirTier))
+      .sort((a, b) => {
+        const score = (d: DimData) =>
+          (d.myTier === 'must-have' || d.theirTier === 'must-have' ? 2 : 0) +
+          (d.myTier === 'off-limits' || d.theirTier === 'off-limits' ? 1 : 0);
+        return score(b) - score(a);
+      });
+    const worthConvo = tension.filter(
+      (d) =>
+        (d.myTier === 'must-have' && d.theirTier === 'off-limits') ||
+        (d.theirTier === 'must-have' && d.myTier === 'off-limits'),
+    );
+    const sharedNonWants = allDims.filter((d) => !isPositive(d.myTier) && !isPositive(d.theirTier));
+
+    return { allDims, catScores, greenZone, tension, worthConvo, sharedNonWants };
+  }, [myConnection, theirConnection]);
+
+  const sentence = generateSentence(greenZone, tension, catScores, myName, theirName);
+  const sortedCatScores = [...catScores].sort((a, b) => b.ratio - a.ratio);
+
+  const myColorRgb = hexToRgb(myConnection.color || '#C5A3CF');
+  const theirColorRgb = hexToRgb(theirConnection.color || '#89CFF0');
+
+  return (
+    <div className="space-y-5 pb-8">
+
+      {/* ── AI Sentence ── */}
+      <div
+        className="mx-5 rounded-3xl px-6 py-7 relative overflow-hidden"
+        style={{
+          background: `linear-gradient(135deg,
+            rgba(${myColorRgb[0]},${myColorRgb[1]},${myColorRgb[2]},0.18) 0%,
+            rgba(${theirColorRgb[0]},${theirColorRgb[1]},${theirColorRgb[2]},0.18) 100%)`,
+          border: '1.5px solid rgba(255,255,255,0.7)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
+        }}
+      >
+        <span
+          className="absolute top-3 left-5 text-6xl leading-none select-none"
+          style={{ color: `rgba(${myColorRgb[0]},${myColorRgb[1]},${myColorRgb[2]},0.2)`, fontFamily: 'Georgia, serif' }}
+        >
+          &ldquo;
+        </span>
+        <p
+          className="text-base leading-relaxed text-center relative z-10 pt-3"
+          style={{ fontFamily: 'Georgia, serif', color: 'rgba(0,0,0,0.72)', fontStyle: 'italic' }}
+        >
+          {sentence}
+        </p>
+        <p className="text-center text-xs mt-4 font-medium" style={{ color: 'rgba(0,0,0,0.3)' }}>
+          {myName} &amp; {theirName}
+        </p>
+      </div>
+
+      {/* ── Category Overlap Scores ── */}
+      <div>
+        <p className="px-6 text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: 'rgba(0,0,0,0.3)' }}>
+          Alignment by Area
+        </p>
+        <div className="flex gap-3 px-5 overflow-x-auto pb-1">
+          {sortedCatScores.map((cat) => {
+            const [r, g, b] = hexToRgb(cat.color);
+            const pct = Math.round(cat.ratio * 100);
+            return (
+              <div
+                key={cat.id}
+                className="shrink-0 flex flex-col items-center justify-center rounded-2xl px-3 py-4"
+                style={{
+                  width: 80,
+                  background: `rgba(${r},${g},${b},${0.12 + (1 - cat.ratio) * 0.12})`,
+                  border: `1.5px solid rgba(${r},${g},${b},0.25)`,
+                  boxShadow: `0 2px 10px rgba(${r},${g},${b},0.12)`,
+                }}
+              >
+                <span
+                  className="text-2xl font-extrabold leading-none"
+                  style={{ color: `rgba(${r},${g},${b},1)` }}
+                >
+                  {pct}
+                  <span className="text-xs font-bold">%</span>
+                </span>
+                <span
+                  className="text-[9px] font-semibold uppercase tracking-wide text-center mt-1.5 leading-tight"
+                  style={{ color: 'rgba(0,0,0,0.45)' }}
+                >
+                  {cat.name}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Green Zone ── */}
+      {greenZone.length > 0 && (
+        <div className="mx-5">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2 h-2 rounded-full" style={{ background: '#5BA84D' }} />
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.3)' }}>
+              The Green Zone
+            </p>
+            <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.2)' }}>{greenZone.length} shared yes&apos;s</span>
+          </div>
+          <div
+            className="rounded-3xl px-5 py-5"
+            style={{
+              background: 'rgba(91,168,77,0.07)',
+              border: '1.5px solid rgba(91,168,77,0.2)',
+            }}
+          >
+            <div className="flex flex-wrap gap-2">
+              {greenZone.map((d) => {
+                const [r, g, b] = hexToRgb(d.categoryColor);
+                const both = d.myTier === 'must-have' && d.theirTier === 'must-have';
+                return (
+                  <div
+                    key={`${d.categoryId}-${d.subcategory}`}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium"
+                    style={{
+                      background: both
+                        ? `rgba(${r},${g},${b},0.18)`
+                        : `rgba(${r},${g},${b},0.10)`,
+                      border: `1.5px solid rgba(${r},${g},${b},${both ? 0.45 : 0.22})`,
+                      color: 'rgba(0,0,0,0.65)',
+                      boxShadow: both ? `0 2px 8px rgba(${r},${g},${b},0.18)` : 'none',
+                    }}
+                  >
+                    {both && <span className="mr-1 text-[#007A6B]">✦</span>}
+                    {d.subcategory}
+                  </div>
+                );
+              })}
+            </div>
+            {greenZone.some((d) => d.myTier === 'must-have' && d.theirTier === 'must-have') && (
+              <p className="text-[10px] mt-3" style={{ color: 'rgba(0,0,0,0.3)' }}>
+                ✦ both actively want
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Tension Points ── */}
+      {tension.length > 0 && (
+        <div className="mx-5">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2 h-2 rounded-full" style={{ background: '#D47020' }} />
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.3)' }}>
+              Tension Points
+            </p>
+            <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.2)' }}>{tension.length} differences</span>
+          </div>
+          <div
+            className="rounded-3xl overflow-hidden"
+            style={{
+              background: 'rgba(212,112,32,0.05)',
+              border: '1.5px solid rgba(212,112,32,0.15)',
+            }}
+          >
+            {tension.slice(0, 8).map((d, i) => {
+              const [r, g, b] = hexToRgb(d.categoryColor);
+              return (
+                <div
+                  key={`${d.categoryId}-${d.subcategory}`}
+                  className="flex items-center gap-3 px-5 py-3"
+                  style={{
+                    borderTop: i > 0 ? '1px solid rgba(0,0,0,0.05)' : 'none',
+                  }}
+                >
+                  <div
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ background: `rgba(${r},${g},${b},0.7)` }}
+                  />
+                  <span className="flex-1 text-sm" style={{ color: 'rgba(0,0,0,0.65)' }}>
+                    {d.subcategory}
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: TIER_BG[d.myTier],
+                        color: TIER_COLORS[d.myTier],
+                      }}
+                    >
+                      {myInitial}: {TIER_SHORT[d.myTier]}
+                    </span>
+                    <span
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: TIER_BG[d.theirTier],
+                        color: TIER_COLORS[d.theirTier],
+                      }}
+                    >
+                      {theirInitial}: {TIER_SHORT[d.theirTier]}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+            {tension.length > 8 && (
+              <p className="text-center text-xs py-3" style={{ color: 'rgba(0,0,0,0.3)' }}>
+                +{tension.length - 8} more
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Worth a Conversation ── */}
+      {worthConvo.length > 0 && (
+        <div className="mx-5">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2 h-2 rounded-full" style={{ background: '#9B6EAF' }} />
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.3)' }}>
+              Worth a Conversation
+            </p>
+          </div>
+          <div
+            className="rounded-3xl px-5 py-4 space-y-2"
+            style={{
+              background: 'rgba(155,110,175,0.06)',
+              border: '1.5px solid rgba(155,110,175,0.18)',
+            }}
+          >
+            <p className="text-xs mb-3" style={{ color: 'rgba(0,0,0,0.4)' }}>
+              These are the biggest gaps — one of you actively wants it, the other isn&apos;t feeling it.
+            </p>
+            {worthConvo.slice(0, 4).map((d) => {
+              const wantsIt = d.myTier === 'must-have' ? myName : theirName;
+              const doesntInitial = d.myTier === 'must-have' ? theirInitial : myInitial;
+              return (
+                <div
+                  key={`${d.categoryId}-${d.subcategory}`}
+                  className="flex items-start gap-3 py-2 px-3 rounded-2xl"
+                  style={{ background: 'rgba(155,110,175,0.08)' }}
+                >
+                  <div className="flex-1">
+                    <p className="text-sm font-medium" style={{ color: 'rgba(0,0,0,0.7)' }}>{d.subcategory}</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'rgba(0,0,0,0.38)' }}>
+                      {wantsIt} really wants this
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <span
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                      style={{ background: TIER_COLORS[d.myTier] }}
+                    >
+                      {myInitial}
+                    </span>
+                    <span
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                      style={{
+                        border: `2px solid ${TIER_COLORS[d.theirTier]}`,
+                        color: TIER_COLORS[d.theirTier],
+                        background: TIER_BG[d.theirTier],
+                      }}
+                    >
+                      {doesntInitial}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── What Isn't Happening ── */}
+      {sharedNonWants.length > 0 && (
+        <div className="mx-5">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2 h-2 rounded-full" style={{ background: 'rgba(0,0,0,0.2)' }} />
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.3)' }}>
+              What Isn&apos;t This Connection
+            </p>
+            <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.2)' }}>you both passed</span>
+          </div>
+          <div
+            className="rounded-3xl px-5 py-5"
+            style={{
+              background: 'rgba(0,0,0,0.03)',
+              border: '1.5px solid rgba(0,0,0,0.07)',
+            }}
+          >
+            <p className="text-xs mb-3" style={{ color: 'rgba(0,0,0,0.35)' }}>
+              Neither of you is looking for this here — and that&apos;s its own kind of clarity.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {sharedNonWants.slice(0, 12).map((d) => (
+                <div
+                  key={`${d.categoryId}-${d.subcategory}`}
+                  className="px-3 py-1 rounded-full text-xs"
+                  style={{
+                    background: 'rgba(0,0,0,0.05)',
+                    border: '1px solid rgba(0,0,0,0.08)',
+                    color: 'rgba(0,0,0,0.38)',
+                  }}
+                >
+                  {d.subcategory}
+                </div>
+              ))}
+              {sharedNonWants.length > 12 && (
+                <div
+                  className="px-3 py-1 rounded-full text-xs"
+                  style={{ color: 'rgba(0,0,0,0.25)' }}
+                >
+                  +{sharedNonWants.length - 12} more
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
