@@ -146,6 +146,24 @@ export default function Home() {
         </Link>
       </div>
 
+      {/* Prototype links */}
+      <div className="px-5 flex gap-2 mb-4">
+        <Link
+          href="/prototype-compare"
+          className="text-xs px-3 py-1.5 rounded-full font-medium transition-all"
+          style={{ background: 'rgba(197,163,207,0.2)', color: '#9B6EAF', border: '1px solid rgba(197,163,207,0.4)' }}
+        >
+          ✦ Summary prototype
+        </Link>
+        <Link
+          href="/prototype"
+          className="text-xs px-3 py-1.5 rounded-full font-medium transition-all"
+          style={{ background: 'rgba(197,163,207,0.2)', color: '#9B6EAF', border: '1px solid rgba(197,163,207,0.4)' }}
+        >
+          ✦ Path prototype
+        </Link>
+      </div>
+
       {/* My Map responses banner — only when there are unseen ones */}
       {myMapResponses.some(r => r.isNew) && (
         <div className="px-5 mb-4">
