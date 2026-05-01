@@ -528,8 +528,37 @@ export default function PatternsPage() {
   const unmetByCategory = groupByCategory(unmetWants);
   const coveredByCategory = groupByCategory(coveredWants);
 
-  // All categories that appear in either map (for gap bars)
-  const allWantsByCategory = groupByCategory(myWants);
+  // ── Coverage fullness ──
+  const coveragePct = myWants.length > 0 ? Math.round((coveredWants.length / myWants.length) * 100) : null;
+
+  // ── Who covers you most ──
+  const coverageByConn = connections.map((conn) => {
+    const count = myWants.filter((want) => {
+      const coverage = connectionCoverage.get(want.item);
+      return coverage?.some((c) => c.connId === conn.id && isPositive(c.tier));
+    }).length;
+    return { conn, count, pct: myWants.length > 0 ? Math.round((count / myWants.length) * 100) : 0 };
+  }).sort((a, b) => b.count - a.count);
+
+  // ── Unique coverage ──
+  const uniqueByConn = connections.map((conn) => {
+    const unique = myWants.filter((want) => {
+      const covering = (connectionCoverage.get(want.item) || []).filter((c) => isPositive(c.tier));
+      return covering.length === 1 && covering[0].connId === conn.id;
+    });
+    return { conn, items: unique };
+  }).filter((c) => c.items.length > 0).sort((a, b) => b.items.length - a.items.length);
+
+  // ── Mutual must-haves ──
+  const mutualMustHaves = myMapItems
+    .filter((i) => i.tier === 'must-have')
+    .filter((want) => {
+      if (connections.length === 0) return false;
+      return connections.every((conn) => {
+        const coverage = connectionCoverage.get(want.item);
+        return coverage?.some((c) => c.connId === conn.id && isPositive(c.tier));
+      });
+    });
 
   return (
     <div className="page-enter min-h-dvh pb-10">
@@ -591,6 +620,117 @@ export default function PatternsPage() {
               <p className="text-xs" style={{ color: 'rgba(0,0,0,0.35)' }}>See how two connections map onto each other</p>
             </div>
             <ConnectionCompare connections={connections} />
+          </div>
+        )}
+
+        {/* ── Coverage Fullness ── */}
+        {hasMyMap && coveragePct !== null && (
+          <div className="mx-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-2 h-2 rounded-full" style={{ background: '#5BA84D' }} />
+              <h2 className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.4)' }}>Coverage Fullness</h2>
+            </div>
+            <div className="rounded-2xl px-5 py-5" style={{ background: 'rgba(91,168,77,0.05)', border: '1.5px solid rgba(91,168,77,0.18)' }}>
+              <div className="flex items-end gap-3 mb-3">
+                <span className="text-5xl font-extrabold leading-none" style={{ fontFamily: 'Georgia, serif', color: 'rgba(0,0,0,0.72)' }}>{coveragePct}%</span>
+                <p className="text-sm pb-1" style={{ color: 'rgba(0,0,0,0.45)' }}>of your wants are covered<br />by at least one connection</p>
+              </div>
+              <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.07)' }}>
+                <div className="h-full rounded-full transition-all" style={{ width: `${coveragePct}%`, background: 'linear-gradient(90deg, #80C9C1, #81CC73)' }} />
+              </div>
+              <div className="flex justify-between mt-1.5">
+                <span className="text-[9px]" style={{ color: 'rgba(0,0,0,0.3)' }}>{coveredWants.length} covered</span>
+                <span className="text-[9px]" style={{ color: 'rgba(0,0,0,0.3)' }}>{unmetWants.length} gaps</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Who Covers You Most ── */}
+        {hasMyMap && coverageByConn.length > 0 && myWants.length > 0 && (
+          <div className="mx-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-2 h-2 rounded-full" style={{ background: '#89CFF0' }} />
+              <h2 className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.4)' }}>Who Covers You Most</h2>
+            </div>
+            <div className="rounded-2xl px-5 py-4 space-y-3" style={{ background: 'rgba(137,207,240,0.05)', border: '1.5px solid rgba(137,207,240,0.22)' }}>
+              {coverageByConn.map(({ conn, count, pct }, i) => {
+                const [r, g, b] = hexToRgb(conn.color || '#89CFF0');
+                return (
+                  <div key={conn.id} className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold w-4 shrink-0 text-right" style={{ color: 'rgba(0,0,0,0.25)' }}>{i + 1}</span>
+                    <ConnectionCircle color={conn.color || '#89CFF0'} size={24} />
+                    <span className="text-sm font-medium flex-1 truncate">{conn.name}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.07)' }}>
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: `rgba(${r},${g},${b},0.8)` }} />
+                      </div>
+                      <span className="text-[10px] font-semibold w-8 text-right" style={{ color: `rgba(${r},${g},${b},1)` }}>{pct}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Unique Coverage ── */}
+        {hasMyMap && uniqueByConn.length > 0 && (
+          <div className="mx-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-2 h-2 rounded-full" style={{ background: '#C5A3CF' }} />
+              <h2 className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.4)' }}>Unique Coverage</h2>
+            </div>
+            <div className="space-y-2">
+              {uniqueByConn.map(({ conn, items }) => {
+                const [r, g, b] = hexToRgb(conn.color || '#C5A3CF');
+                return (
+                  <div key={conn.id} className="rounded-2xl px-4 py-3" style={{ background: `rgba(${r},${g},${b},0.06)`, border: `1.5px solid rgba(${r},${g},${b},0.2)` }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <ConnectionCircle color={conn.color || '#C5A3CF'} size={20} />
+                      <span className="text-xs font-semibold">{conn.name}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full ml-auto" style={{ background: `rgba(${r},${g},${b},0.15)`, color: `rgba(${r},${g},${b},1)` }}>
+                        only one
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {items.map((want) => (
+                        <span key={want.item} className="text-[10px] px-2 py-1 rounded-full font-medium" style={{ background: `rgba(${r},${g},${b},0.1)`, color: `rgba(${r},${g},${b},1)`, border: `1px solid rgba(${r},${g},${b},0.2)` }}>
+                          {want.item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Mutual Must-Haves ── */}
+        {hasMyMap && connections.length >= 2 && mutualMustHaves.length > 0 && (
+          <div className="mx-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-2 h-2 rounded-full" style={{ background: '#009483' }} />
+              <h2 className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.4)' }}>Mutual Must-Haves</h2>
+            </div>
+            <div className="rounded-2xl px-4 py-4" style={{ background: 'rgba(0,148,131,0.04)', border: '1.5px solid rgba(0,148,131,0.16)' }}>
+              <p className="text-xs mb-3" style={{ color: 'rgba(0,0,0,0.4)' }}>
+                Things you must-have that every connection covers — your relational bedrock
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {mutualMustHaves.map((want) => {
+                  const catDef = DEFAULT_CATEGORIES.find((c) => c.id === want.categoryId);
+                  const color = catDef?.color || '#009483';
+                  const [r, g, b] = hexToRgb(color);
+                  return (
+                    <span key={want.item} className="text-xs px-3 py-1.5 rounded-full font-semibold" style={{ background: `rgba(${r},${g},${b},0.12)`, color, border: `1.5px solid rgba(${r},${g},${b},0.28)` }}>
+                      ✦ {want.item}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 
