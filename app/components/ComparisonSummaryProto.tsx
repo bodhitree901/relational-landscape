@@ -420,7 +420,7 @@ function TensionCategorySheet({ catScore, dims, myName, theirName, myInitial, th
         {/* Horizontal scroll cards */}
         <div
           className="overflow-x-auto flex-1"
-          style={{ display: 'flex', gap: 12, padding: '20px 20px 28px', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' as const }}
+          style={{ display: 'flex', gap: 12, padding: '20px 20px 28px', scrollSnapType: 'x mandatory' }}
         >
           {dims.map((dim) => {
             const isWorthConvo = (dim.myTier === 'must-have' && dim.theirTier === 'off-limits') || (dim.theirTier === 'must-have' && dim.myTier === 'off-limits');
