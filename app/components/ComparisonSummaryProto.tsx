@@ -500,26 +500,111 @@ function TensionExplorer({ tension, catScores, myName, theirName, myInitial, the
 
   const activeCatData = tensionByCat.find(t => t.catScore.id === activeCatId);
 
+  const VW = 320;
+  const CAT_CX = 44;
+  const CAT_R = 30;
+  const PILL_X = 108;
+  const PILL_W = VW - PILL_X - 6;
+  const ROW_H = 46;
+  const MAX_SHOWN = 5;
+
+  function trunc(s: string, max: number) {
+    return s.length > max ? s.slice(0, max - 1) + '…' : s;
+  }
+
+  const groups = tensionByCat.map(({ catScore, dims }) => {
+    const shown = dims.slice(0, MAX_SHOWN);
+    const spreadH = Math.max(0, (shown.length - 1) * ROW_H);
+    const groupH = Math.max(CAT_R * 2 + 28, spreadH + 56);
+    return { catScore, dims, shown, groupH };
+  });
+
+  let cursor = 0;
+  const groupYs = groups.map(g => { const y = cursor; cursor += g.groupH; return y; });
+  const totalH = cursor;
+
   return (
     <>
-      <div className="flex flex-wrap gap-2">
-        {tensionByCat.map(({ catScore, dims }) => {
-          const [r, g, b] = hexToRgb(catScore.color);
-          const isActive = activeCatId === catScore.id;
+      <svg viewBox={`0 0 ${VW} ${totalH}`} width="100%" style={{ overflow: 'visible', display: 'block' }}>
+        {groups.map((group, gi) => {
+          const gy = groupYs[gi];
+          const catCY = gy + group.groupH / 2;
+          const [r, g, b] = hexToRgb(group.catScore.color);
+          const n = group.shown.length;
+          const spreadH = Math.max(0, (n - 1) * ROW_H);
+          const firstDimY = catCY - spreadH / 2;
+          const words = group.catScore.name.split(' ');
+          const angleSpread = Math.min((n - 1) * 18, 72);
+
           return (
-            <button
-              key={catScore.id}
-              onClick={() => setActiveCatId(isActive ? null : catScore.id)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-2xl transition-all active:scale-95"
-              style={{ background: isActive ? `rgba(${r},${g},${b},0.18)` : 'rgba(0,0,0,0.05)', border: `1.5px solid rgba(${r},${g},${b},${isActive ? 0.5 : 0.18})`, boxShadow: isActive ? `0 2px 12px rgba(${r},${g},${b},0.2)` : 'none' }}
-            >
-              <span className="text-xs font-semibold" style={{ color: isActive ? `rgba(${r},${g},${b},1)` : 'rgba(0,0,0,0.55)' }}>{catScore.name}</span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: `rgba(${r},${g},${b},0.15)`, color: `rgba(${r},${g},${b},0.9)` }}>{dims.length}</span>
-            </button>
+            <g key={group.catScore.id} style={{ cursor: 'pointer' }} onClick={() => setActiveCatId(group.catScore.id)}>
+              {/* Glow */}
+              <circle cx={CAT_CX} cy={catCY} r={CAT_R + 7} fill={`rgba(${r},${g},${b},0.1)`} />
+              {/* Circle */}
+              <circle cx={CAT_CX} cy={catCY} r={CAT_R} fill={`rgba(${r},${g},${b},0.15)`} stroke={`rgba(${r},${g},${b},0.6)`} strokeWidth={2.5} />
+              {/* Label lines */}
+              {words.length === 1 ? (
+                <text x={CAT_CX} y={catCY + 4} textAnchor="middle" fontSize="9" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui">{words[0].toUpperCase()}</text>
+              ) : words.length === 2 ? (
+                <>
+                  <text x={CAT_CX} y={catCY - 2} textAnchor="middle" fontSize="8.5" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui">{words[0].toUpperCase()}</text>
+                  <text x={CAT_CX} y={catCY + 9} textAnchor="middle" fontSize="8.5" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui">{words[1].toUpperCase()}</text>
+                </>
+              ) : (
+                <>
+                  <text x={CAT_CX} y={catCY - 5} textAnchor="middle" fontSize="8" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui">{words[0].toUpperCase()}</text>
+                  <text x={CAT_CX} y={catCY + 5} textAnchor="middle" fontSize="8" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui">{words.slice(1).join(' ').toUpperCase()}</text>
+                </>
+              )}
+              {/* Count */}
+              <text x={CAT_CX} y={catCY + 20} textAnchor="middle" fontSize="7.5" fontWeight="600" fill={`rgba(${r},${g},${b},0.65)`} fontFamily="system-ui">{group.dims.length} pts</text>
+
+              {/* Branches */}
+              {group.shown.map((dim, di) => {
+                const dimY = firstDimY + di * ROW_H;
+                const angleRad = ((-angleSpread / 2 + di * (n > 1 ? angleSpread / (n - 1) : 0)) * Math.PI) / 180;
+                const depX = CAT_CX + CAT_R * Math.cos(angleRad);
+                const depY = catCY + CAT_R * Math.sin(angleRad);
+                const isWorth = (dim.myTier === 'must-have' && dim.theirTier === 'off-limits') || (dim.theirTier === 'must-have' && dim.myTier === 'off-limits');
+                const hasMust = dim.myTier === 'must-have' || dim.theirTier === 'must-have';
+                const lineColor = isWorth ? '#D47020' : hasMust ? '#B8A520' : `rgba(${r},${g},${b},0.75)`;
+                const pillH = 30;
+                const pillR = pillH / 2;
+
+                return (
+                  <g key={dim.subcategory}>
+                    {/* Bezier branch */}
+                    <path
+                      d={`M ${depX.toFixed(1)} ${depY.toFixed(1)} C ${(depX + 28).toFixed(1)} ${depY.toFixed(1)}, ${(PILL_X - 18).toFixed(1)} ${dimY.toFixed(1)}, ${PILL_X.toFixed(1)} ${dimY.toFixed(1)}`}
+                      fill="none" stroke={lineColor} strokeWidth={1.8} opacity={0.7}
+                    />
+                    {/* Departure dot on circle */}
+                    <circle cx={depX.toFixed(1)} cy={depY.toFixed(1)} r={4.5} fill={lineColor} />
+                    {/* Pill */}
+                    <rect x={PILL_X} y={(dimY - pillR).toFixed(1)} width={PILL_W} height={pillH} rx={pillR} fill={`rgba(${r},${g},${b},0.1)`} stroke={`rgba(${r},${g},${b},0.28)`} strokeWidth={1.5} />
+                    {/* Entry dot on pill */}
+                    <circle cx={(PILL_X + pillR).toFixed(1)} cy={dimY.toFixed(1)} r={3.5} fill={lineColor} />
+                    {/* Dimension label */}
+                    <text x={(PILL_X + pillR * 2 + 4).toFixed(1)} y={(dimY + 4).toFixed(1)} fontSize="10" fontWeight="600" fill="rgba(0,0,0,0.68)" fontFamily="system-ui">
+                      {trunc(dim.subcategory, 20)}
+                    </text>
+                    {/* Tier dots — right end of pill */}
+                    <circle cx={(PILL_X + PILL_W - 14).toFixed(1)} cy={(dimY - 4).toFixed(1)} r={4} fill={TIER_COLORS[dim.myTier]} opacity={0.9} />
+                    <circle cx={(PILL_X + PILL_W - 14).toFixed(1)} cy={(dimY + 5).toFixed(1)} r={4} fill="none" stroke={TIER_COLORS[dim.theirTier]} strokeWidth={1.5} opacity={0.9} />
+                  </g>
+                );
+              })}
+
+              {group.dims.length > MAX_SHOWN && (
+                <text x={(PILL_X + 8).toFixed(1)} y={(gy + group.groupH - 6).toFixed(1)} fontSize="8" fontWeight="600" fill={`rgba(${r},${g},${b},0.55)`} fontFamily="system-ui">
+                  +{group.dims.length - MAX_SHOWN} more · tap to see all
+                </text>
+              )}
+            </g>
           );
         })}
-      </div>
-      <p className="text-[10px] mt-2" style={{ color: 'rgba(0,0,0,0.25)' }}>tap a category · swipe through tension points</p>
+      </svg>
+      <p className="text-[10px] mt-2" style={{ color: 'rgba(0,0,0,0.25)' }}>tap any category to swipe through</p>
 
       {activeCatData && (
         <TensionCategorySheet
