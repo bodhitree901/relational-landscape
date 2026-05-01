@@ -493,8 +493,46 @@ function TensionSpectrumBar({ dim, myInitial, theirInitial }: { dim: DimData; my
   );
 }
 
-function TensionCategorySheet({ catScore, dims, myName, theirName, myInitial, theirInitial, onClose }: {
-  catScore: CatScore; dims: DimData[]; myName: string; theirName: string; myInitial: string; theirInitial: string; onClose: () => void;
+function SingleDimSheet({ dim, myInitial, theirInitial, onClose }: {
+  dim: DimData; myInitial: string; theirInitial: string; onClose: () => void;
+}) {
+  const [r, g, b] = hexToRgb(dim.categoryColor);
+  const def = SUBCATEGORY_DEFINITIONS[dim.subcategory];
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl overflow-hidden" style={{ background: 'var(--background)', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', animation: 'slideUp 0.28s cubic-bezier(0.34,1.2,0.64,1)' }}>
+        <div className="px-6 pt-4 pb-4" style={{ background: `linear-gradient(135deg, rgba(${r},${g},${b},0.22), rgba(${r},${g},${b},0.10))` }}>
+          <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: `rgba(${r},${g},${b},0.4)` }} />
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-extrabold" style={{ color: 'rgba(0,0,0,0.75)' }}>{dim.subcategory}</h3>
+              <p className="text-xs mt-0.5 uppercase tracking-widest font-semibold" style={{ color: `rgba(${r},${g},${b},0.8)` }}>{dim.categoryName}</p>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background: `rgba(${r},${g},${b},0.15)`, color: 'rgba(0,0,0,0.4)' }}>✕</button>
+          </div>
+        </div>
+        <div className="px-5 pt-5 pb-4">
+          <TensionSpectrumBar dim={dim} myInitial={myInitial} theirInitial={theirInitial} />
+          <div className="flex justify-between mt-4">
+            <span className="text-[11px] font-semibold" style={{ color: TIER_COLORS[dim.myTier] }}>{myInitial}: {TIER_SHORT[dim.myTier]}</span>
+            <span className="text-[11px] font-semibold" style={{ color: TIER_COLORS[dim.theirTier] }}>{theirInitial}: {TIER_SHORT[dim.theirTier]}</span>
+          </div>
+        </div>
+        {def && (
+          <div className="px-5 pb-8" style={{ borderTop: `1px solid rgba(${r},${g},${b},0.12)` }}>
+            <p className="text-[10px] font-semibold uppercase tracking-widest mt-4 mb-2" style={{ color: `rgba(${r},${g},${b},0.7)` }}>What this means</p>
+            <p className="text-sm leading-relaxed" style={{ color: 'rgba(0,0,0,0.58)', fontFamily: 'Georgia, serif' }}>{def}</p>
+          </div>
+        )}
+      </div>
+      <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
+    </>
+  );
+}
+
+function TensionCategorySheet({ catScore, dims, myInitial, theirInitial, onClose }: {
+  catScore: CatScore; dims: DimData[]; myInitial: string; theirInitial: string; onClose: () => void;
 }) {
   const [r, g, b] = hexToRgb(catScore.color);
 
@@ -505,7 +543,6 @@ function TensionCategorySheet({ catScore, dims, myName, theirName, myInitial, th
         className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl"
         style={{ background: 'var(--background)', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '84vh', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.28s cubic-bezier(0.34,1.2,0.64,1)' }}
       >
-        {/* Header */}
         <div className="px-6 pt-4 pb-4 shrink-0" style={{ background: `linear-gradient(135deg, rgba(${r},${g},${b},0.22), rgba(${r},${g},${b},0.10))` }}>
           <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: `rgba(${r},${g},${b},0.4)` }} />
           <div className="flex items-center justify-between">
@@ -516,34 +553,16 @@ function TensionCategorySheet({ catScore, dims, myName, theirName, myInitial, th
             <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background: `rgba(${r},${g},${b},0.15)`, color: 'rgba(0,0,0,0.4)' }}>✕</button>
           </div>
         </div>
-
-        {/* Horizontal scroll cards */}
-        <div
-          className="overflow-x-auto flex-1"
-          style={{ display: 'flex', gap: 12, padding: '20px 20px 28px', scrollSnapType: 'x mandatory' }}
-        >
+        <div className="overflow-x-auto flex-1" style={{ display: 'flex', gap: 12, padding: '20px 20px 28px', scrollSnapType: 'x mandatory' }}>
           {dims.map((dim) => {
-            const isWorthConvo = (dim.myTier === 'must-have' && dim.theirTier === 'off-limits') || (dim.theirTier === 'must-have' && dim.myTier === 'off-limits');
-            const wantsName = dim.myTier === 'must-have' ? myName : theirName;
-            const wantsInitial = dim.myTier === 'must-have' ? myInitial : theirInitial;
-            const wantsTier = dim.myTier === 'must-have' ? dim.myTier : dim.theirTier;
-            const otherName = dim.myTier === 'must-have' ? theirName : myName;
-            const otherInitial = dim.myTier === 'must-have' ? theirInitial : myInitial;
-            const otherTier = dim.myTier === 'must-have' ? dim.theirTier : dim.myTier;
-
+            const def = SUBCATEGORY_DEFINITIONS[dim.subcategory];
             return (
-              <div
-                key={dim.subcategory}
-                style={{ minWidth: 'calc(100vw - 56px)', maxWidth: 340, scrollSnapAlign: 'start', flexShrink: 0 }}
-              >
+              <div key={dim.subcategory} style={{ minWidth: 'calc(100vw - 56px)', maxWidth: 340, scrollSnapAlign: 'start', flexShrink: 0 }}>
                 <div className="rounded-3xl overflow-hidden" style={{ border: `1.5px solid rgba(${r},${g},${b},0.22)`, background: `rgba(${r},${g},${b},0.05)` }}>
-                  {/* Header */}
                   <div className="px-5 pt-5 pb-3">
                     <p className="text-base font-semibold" style={{ color: 'rgba(0,0,0,0.75)' }}>{dim.subcategory}</p>
                     <p className="text-[11px] mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>{catScore.name}</p>
                   </div>
-
-                  {/* Spectrum bar */}
                   <div className="px-5 pb-4">
                     <TensionSpectrumBar dim={dim} myInitial={myInitial} theirInitial={theirInitial} />
                     <div className="flex justify-between mt-4">
@@ -551,14 +570,10 @@ function TensionCategorySheet({ catScore, dims, myName, theirName, myInitial, th
                       <span className="text-[11px] font-semibold" style={{ color: TIER_COLORS[dim.theirTier] }}>{theirInitial}: {TIER_SHORT[dim.theirTier]}</span>
                     </div>
                   </div>
-
-                  {/* Conversation starter — only for biggest gaps */}
-                  {isWorthConvo && (
-                    <div className="px-5 py-4 mx-0" style={{ borderTop: `1px solid rgba(${r},${g},${b},0.15)`, background: 'rgba(155,110,175,0.07)' }}>
-                      <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(155,110,175,0.7)' }}>Conversation starter</p>
-                      <p className="text-sm leading-relaxed" style={{ color: 'rgba(0,0,0,0.6)', fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
-                        &ldquo;{wantsName} really wants {dim.subcategory} in this connection. {otherName}, what makes this feel off the table — or is there a version of it that could work?&rdquo;
-                      </p>
+                  {def && (
+                    <div className="px-5 py-4" style={{ borderTop: `1px solid rgba(${r},${g},${b},0.15)`, background: `rgba(${r},${g},${b},0.04)` }}>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: `rgba(${r},${g},${b},0.7)` }}>What this means</p>
+                      <p className="text-sm leading-relaxed" style={{ color: 'rgba(0,0,0,0.58)', fontFamily: 'Georgia, serif' }}>{def}</p>
                     </div>
                   )}
                 </div>
@@ -566,8 +581,6 @@ function TensionCategorySheet({ catScore, dims, myName, theirName, myInitial, th
             );
           })}
         </div>
-
-        {/* Dot indicators */}
         {dims.length > 1 && (
           <div className="flex justify-center gap-1.5 pb-5 shrink-0">
             {dims.map((_, i) => (
@@ -581,10 +594,12 @@ function TensionCategorySheet({ catScore, dims, myName, theirName, myInitial, th
   );
 }
 
-function TensionExplorer({ tension, catScores, myName, theirName, myInitial, theirInitial }: {
+function TensionExplorer({ tension, catScores, myInitial, theirInitial }: {
   tension: DimData[]; catScores: CatScore[]; myName: string; theirName: string; myInitial: string; theirInitial: string;
 }) {
+  const [catIndex, setCatIndex] = useState(0);
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
+  const [activeDim, setActiveDim] = useState<DimData | null>(null);
 
   const tensionByCat = useMemo(() => {
     const map = new Map<string, { catScore: CatScore; dims: DimData[] }>();
@@ -598,122 +613,110 @@ function TensionExplorer({ tension, catScores, myName, theirName, myInitial, the
     return [...map.values()].sort((a, b) => b.dims.length - a.dims.length);
   }, [tension, catScores]);
 
+  const group = tensionByCat[catIndex];
   const activeCatData = tensionByCat.find(t => t.catScore.id === activeCatId);
+
+  if (!group) return null;
 
   const VW = 320;
   const CAT_CX = 44;
   const CAT_R = 30;
   const PILL_X = 108;
   const PILL_W = VW - PILL_X - 6;
-  const ROW_H = 46;
-  const MAX_SHOWN = 5;
+  const ROW_H = 44;
+  const MAX_SHOWN = 7;
 
-  function trunc(s: string, max: number) {
-    return s.length > max ? s.slice(0, max - 1) + '…' : s;
-  }
-
-  const groups = tensionByCat.map(({ catScore, dims }) => {
-    const shown = dims.slice(0, MAX_SHOWN);
-    const spreadH = Math.max(0, (shown.length - 1) * ROW_H);
-    const groupH = Math.max(CAT_R * 2 + 28, spreadH + 56);
-    return { catScore, dims, shown, groupH };
-  });
-
-  let cursor = 0;
-  const groupYs = groups.map(g => { const y = cursor; cursor += g.groupH; return y; });
-  const totalH = cursor;
+  const { catScore, dims } = group;
+  const shown = dims.slice(0, MAX_SHOWN);
+  const n = shown.length;
+  const spreadH = Math.max(0, (n - 1) * ROW_H);
+  const groupH = Math.max(CAT_R * 2 + 28, spreadH + 56);
+  const catCY = groupH / 2;
+  const firstDimY = catCY - spreadH / 2;
+  const angleSpread = Math.min((n - 1) * 18, 72);
+  const [r, g, b] = hexToRgb(catScore.color);
+  const words = catScore.name.split(' ');
 
   return (
     <>
-      <svg viewBox={`0 0 ${VW} ${totalH}`} width="100%" style={{ overflow: 'visible', display: 'block' }}>
-        {groups.map((group, gi) => {
-          const gy = groupYs[gi];
-          const catCY = gy + group.groupH / 2;
-          const [r, g, b] = hexToRgb(group.catScore.color);
-          const n = group.shown.length;
-          const spreadH = Math.max(0, (n - 1) * ROW_H);
-          const firstDimY = catCY - spreadH / 2;
-          const words = group.catScore.name.split(' ');
-          const angleSpread = Math.min((n - 1) * 18, 72);
+      {/* Arrow navigation */}
+      <div className="flex items-center justify-between mb-3">
+        <button
+          onClick={() => setCatIndex(i => Math.max(0, i - 1))}
+          disabled={catIndex === 0}
+          className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 disabled:opacity-20"
+          style={{ background: `rgba(${r},${g},${b},0.12)`, color: `rgba(${r},${g},${b},1)` }}
+        >‹</button>
+        <div className="text-center">
+          <p className="text-xs font-semibold" style={{ color: `rgba(${r},${g},${b},1)` }}>{catScore.name}</p>
+          <p className="text-[10px]" style={{ color: 'rgba(0,0,0,0.25)' }}>{catIndex + 1} of {tensionByCat.length}</p>
+        </div>
+        <button
+          onClick={() => setCatIndex(i => Math.min(tensionByCat.length - 1, i + 1))}
+          disabled={catIndex === tensionByCat.length - 1}
+          className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 disabled:opacity-20"
+          style={{ background: `rgba(${r},${g},${b},0.12)`, color: `rgba(${r},${g},${b},1)` }}
+        >›</button>
+      </div>
+
+      {/* Hub-and-spoke SVG for current category */}
+      <svg viewBox={`0 0 ${VW} ${groupH}`} width="100%" style={{ display: 'block' }}>
+        {/* Glow */}
+        <circle cx={CAT_CX} cy={catCY} r={CAT_R + 7} fill={`rgba(${r},${g},${b},0.1)`} />
+        {/* Circle — tap to open category sheet */}
+        <circle cx={CAT_CX} cy={catCY} r={CAT_R} fill={`rgba(${r},${g},${b},0.15)`} stroke={`rgba(${r},${g},${b},0.6)`} strokeWidth={2.5} style={{ cursor: 'pointer' }} onClick={() => setActiveCatId(catScore.id)} />
+        {words.length === 1 ? (
+          <text x={CAT_CX} y={catCY + 4} textAnchor="middle" fontSize="9" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{words[0].toUpperCase()}</text>
+        ) : words.length === 2 ? (
+          <>
+            <text x={CAT_CX} y={catCY - 2} textAnchor="middle" fontSize="8.5" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{words[0].toUpperCase()}</text>
+            <text x={CAT_CX} y={catCY + 9} textAnchor="middle" fontSize="8.5" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{words[1].toUpperCase()}</text>
+          </>
+        ) : (
+          <>
+            <text x={CAT_CX} y={catCY - 5} textAnchor="middle" fontSize="8" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{words[0].toUpperCase()}</text>
+            <text x={CAT_CX} y={catCY + 5} textAnchor="middle" fontSize="8" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{words.slice(1).join(' ').toUpperCase()}</text>
+          </>
+        )}
+        <text x={CAT_CX} y={catCY + 20} textAnchor="middle" fontSize="7.5" fontWeight="600" fill={`rgba(${r},${g},${b},0.65)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{dims.length} pts</text>
+
+        {/* Branches — each pill is independently tappable */}
+        {shown.map((dim, di) => {
+          const dimY = firstDimY + di * ROW_H;
+          const angleRad = ((-angleSpread / 2 + di * (n > 1 ? angleSpread / (n - 1) : 0)) * Math.PI) / 180;
+          const depX = CAT_CX + CAT_R * Math.cos(angleRad);
+          const depY = catCY + CAT_R * Math.sin(angleRad);
+          const isWorth = (dim.myTier === 'must-have' && dim.theirTier === 'off-limits') || (dim.theirTier === 'must-have' && dim.myTier === 'off-limits');
+          const hasMust = dim.myTier === 'must-have' || dim.theirTier === 'must-have';
+          const lineColor = isWorth ? '#D47020' : hasMust ? '#B8A520' : `rgba(${r},${g},${b},0.75)`;
+          const pillH = 30; const pillR = pillH / 2;
 
           return (
-            <g key={group.catScore.id} style={{ cursor: 'pointer' }} onClick={() => setActiveCatId(group.catScore.id)}>
-              {/* Glow */}
-              <circle cx={CAT_CX} cy={catCY} r={CAT_R + 7} fill={`rgba(${r},${g},${b},0.1)`} />
-              {/* Circle */}
-              <circle cx={CAT_CX} cy={catCY} r={CAT_R} fill={`rgba(${r},${g},${b},0.15)`} stroke={`rgba(${r},${g},${b},0.6)`} strokeWidth={2.5} />
-              {/* Label lines */}
-              {words.length === 1 ? (
-                <text x={CAT_CX} y={catCY + 4} textAnchor="middle" fontSize="9" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui">{words[0].toUpperCase()}</text>
-              ) : words.length === 2 ? (
-                <>
-                  <text x={CAT_CX} y={catCY - 2} textAnchor="middle" fontSize="8.5" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui">{words[0].toUpperCase()}</text>
-                  <text x={CAT_CX} y={catCY + 9} textAnchor="middle" fontSize="8.5" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui">{words[1].toUpperCase()}</text>
-                </>
-              ) : (
-                <>
-                  <text x={CAT_CX} y={catCY - 5} textAnchor="middle" fontSize="8" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui">{words[0].toUpperCase()}</text>
-                  <text x={CAT_CX} y={catCY + 5} textAnchor="middle" fontSize="8" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui">{words.slice(1).join(' ').toUpperCase()}</text>
-                </>
-              )}
-              {/* Count */}
-              <text x={CAT_CX} y={catCY + 20} textAnchor="middle" fontSize="7.5" fontWeight="600" fill={`rgba(${r},${g},${b},0.65)`} fontFamily="system-ui">{group.dims.length} pts</text>
-
-              {/* Branches */}
-              {group.shown.map((dim, di) => {
-                const dimY = firstDimY + di * ROW_H;
-                const angleRad = ((-angleSpread / 2 + di * (n > 1 ? angleSpread / (n - 1) : 0)) * Math.PI) / 180;
-                const depX = CAT_CX + CAT_R * Math.cos(angleRad);
-                const depY = catCY + CAT_R * Math.sin(angleRad);
-                const isWorth = (dim.myTier === 'must-have' && dim.theirTier === 'off-limits') || (dim.theirTier === 'must-have' && dim.myTier === 'off-limits');
-                const hasMust = dim.myTier === 'must-have' || dim.theirTier === 'must-have';
-                const lineColor = isWorth ? '#D47020' : hasMust ? '#B8A520' : `rgba(${r},${g},${b},0.75)`;
-                const pillH = 30;
-                const pillR = pillH / 2;
-
-                return (
-                  <g key={dim.subcategory}>
-                    {/* Bezier branch */}
-                    <path
-                      d={`M ${depX.toFixed(1)} ${depY.toFixed(1)} C ${(depX + 28).toFixed(1)} ${depY.toFixed(1)}, ${(PILL_X - 18).toFixed(1)} ${dimY.toFixed(1)}, ${PILL_X.toFixed(1)} ${dimY.toFixed(1)}`}
-                      fill="none" stroke={lineColor} strokeWidth={1.8} opacity={0.7}
-                    />
-                    {/* Departure dot on circle */}
-                    <circle cx={depX.toFixed(1)} cy={depY.toFixed(1)} r={4.5} fill={lineColor} />
-                    {/* Pill */}
-                    <rect x={PILL_X} y={(dimY - pillR).toFixed(1)} width={PILL_W} height={pillH} rx={pillR} fill={`rgba(${r},${g},${b},0.1)`} stroke={`rgba(${r},${g},${b},0.28)`} strokeWidth={1.5} />
-                    {/* Entry dot on pill */}
-                    <circle cx={(PILL_X + pillR).toFixed(1)} cy={dimY.toFixed(1)} r={3.5} fill={lineColor} />
-                    {/* Dimension label */}
-                    <text x={(PILL_X + pillR * 2 + 4).toFixed(1)} y={(dimY + 4).toFixed(1)} fontSize="10" fontWeight="600" fill="rgba(0,0,0,0.68)" fontFamily="system-ui">
-                      {trunc(dim.subcategory, 20)}
-                    </text>
-                    {/* Tier dots — right end of pill */}
-                    <circle cx={(PILL_X + PILL_W - 14).toFixed(1)} cy={(dimY - 4).toFixed(1)} r={4} fill={TIER_COLORS[dim.myTier]} opacity={0.9} />
-                    <circle cx={(PILL_X + PILL_W - 14).toFixed(1)} cy={(dimY + 5).toFixed(1)} r={4} fill="none" stroke={TIER_COLORS[dim.theirTier]} strokeWidth={1.5} opacity={0.9} />
-                  </g>
-                );
-              })}
-
-              {group.dims.length > MAX_SHOWN && (
-                <text x={(PILL_X + 8).toFixed(1)} y={(gy + group.groupH - 6).toFixed(1)} fontSize="8" fontWeight="600" fill={`rgba(${r},${g},${b},0.55)`} fontFamily="system-ui">
-                  +{group.dims.length - MAX_SHOWN} more · tap to see all
-                </text>
-              )}
+            <g key={dim.subcategory}>
+              <path d={`M ${depX.toFixed(1)} ${depY.toFixed(1)} C ${(depX + 28).toFixed(1)} ${depY.toFixed(1)}, ${(PILL_X - 18).toFixed(1)} ${dimY.toFixed(1)}, ${PILL_X.toFixed(1)} ${dimY.toFixed(1)}`} fill="none" stroke={lineColor} strokeWidth={1.8} opacity={0.7} />
+              <circle cx={depX.toFixed(1)} cy={depY.toFixed(1)} r={4.5} fill={lineColor} />
+              {/* Pill — tap to open single dim sheet */}
+              <g style={{ cursor: 'pointer' }} onClick={() => setActiveDim(dim)}>
+                <rect x={PILL_X} y={(dimY - pillR).toFixed(1)} width={PILL_W} height={pillH} rx={pillR} fill={`rgba(${r},${g},${b},0.1)`} stroke={`rgba(${r},${g},${b},0.28)`} strokeWidth={1.5} />
+                <circle cx={(PILL_X + pillR).toFixed(1)} cy={dimY.toFixed(1)} r={3.5} fill={lineColor} />
+                <text x={(PILL_X + pillR * 2 + 4).toFixed(1)} y={(dimY + 4).toFixed(1)} fontSize="10" fontWeight="600" fill="rgba(0,0,0,0.68)" fontFamily="system-ui">{dim.subcategory.length > 22 ? dim.subcategory.slice(0, 21) + '…' : dim.subcategory}</text>
+                <circle cx={(PILL_X + PILL_W - 14).toFixed(1)} cy={(dimY - 4).toFixed(1)} r={4} fill={TIER_COLORS[dim.myTier]} opacity={0.9} />
+                <circle cx={(PILL_X + PILL_W - 14).toFixed(1)} cy={(dimY + 5).toFixed(1)} r={4} fill="none" stroke={TIER_COLORS[dim.theirTier]} strokeWidth={1.5} opacity={0.9} />
+              </g>
             </g>
           );
         })}
-      </svg>
-      <p className="text-[10px] mt-2" style={{ color: 'rgba(0,0,0,0.25)' }}>tap any category to swipe through</p>
 
+        {dims.length > MAX_SHOWN && (
+          <text x={(PILL_X + 8).toFixed(1)} y={(groupH - 8).toFixed(1)} fontSize="8" fontWeight="600" fill={`rgba(${r},${g},${b},0.55)`} fontFamily="system-ui" style={{ cursor: 'pointer' }} onClick={() => setActiveCatId(catScore.id)}>
+            +{dims.length - MAX_SHOWN} more · tap circle to see all
+          </text>
+        )}
+      </svg>
+
+      {activeDim && <SingleDimSheet dim={activeDim} myInitial={myInitial} theirInitial={theirInitial} onClose={() => setActiveDim(null)} />}
       {activeCatData && (
-        <TensionCategorySheet
-          catScore={activeCatData.catScore}
-          dims={activeCatData.dims}
-          myName={myName} theirName={theirName}
-          myInitial={myInitial} theirInitial={theirInitial}
-          onClose={() => setActiveCatId(null)}
-        />
+        <TensionCategorySheet catScore={activeCatData.catScore} dims={activeCatData.dims} myInitial={myInitial} theirInitial={theirInitial} onClose={() => setActiveCatId(null)} />
       )}
     </>
   );
