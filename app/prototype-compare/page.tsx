@@ -36,16 +36,10 @@ function ProtoCompareInner() {
   return (
     <div className="min-h-dvh pb-16">
       {/* Header */}
-      <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+      <div className="px-5 pt-5 pb-3">
         <Link href="/" className="text-sm opacity-60 hover:opacity-100 transition-opacity">
           &larr; Back
         </Link>
-        <span
-          className="text-xs px-3 py-1 rounded-full font-medium"
-          style={{ background: 'rgba(197,163,207,0.25)', color: '#9B6EAF' }}
-        >
-          ✦ Prototype
-        </span>
       </div>
 
       {/* Connection pickers */}
@@ -101,7 +95,7 @@ function ProtoCompareInner() {
           <h1 className="text-2xl font-semibold" style={{ fontFamily: 'Georgia, serif' }}>
             {connA.name} &amp; {connB.name}
           </h1>
-          <p className="text-xs opacity-40 mt-1">Connection Summary — prototype</p>
+          <p className="text-xs opacity-40 mt-1">Connection Summary</p>
         </div>
       )}
 
