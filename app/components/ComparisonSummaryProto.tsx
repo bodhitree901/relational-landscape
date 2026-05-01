@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Connection, Tier, TIER_ORDER } from '../lib/types';
 import { DEFAULT_CATEGORIES } from '../lib/categories';
 import { SUBCATEGORY_DEFINITIONS } from '../lib/definitions';
@@ -822,6 +822,18 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
   const myInitial = myName[0]?.toUpperCase() || 'A';
   const theirInitial = theirName[0]?.toUpperCase() || 'B';
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
+  const [myMapDefaults, setMyMapDefaults] = useState<Map<string, Tier>>(new Map());
+
+  useEffect(() => {
+    const data = localStorage.getItem('rl_my_menu');
+    if (!data) return;
+    const profiles: { categoryId: string; ratings: { item: string; tier: string }[] }[] = JSON.parse(data);
+    const map = new Map<string, Tier>();
+    for (const p of profiles) {
+      for (const r of p.ratings) map.set(r.item, r.tier as Tier);
+    }
+    setMyMapDefaults(map);
+  }, []);
 
   const { catScores, greenZone, tension, sharedNonWants } = useMemo(() => {
     const theirMap = new Map<string, Map<string, Tier>>();
@@ -866,6 +878,64 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
     const sharedNonWants = allDims.filter(d => !isPositive(d.myTier) && !isPositive(d.theirTier));
     return { catScores, greenZone, tension, sharedNonWants };
   }, [myConnection, theirConnection]);
+
+  interface Divergence {
+    dim: string; catColor: string; connectionName: string; connColor: string;
+    defaultTier: Tier; connectionTier: Tier; more: boolean;
+  }
+
+  const divergences = useMemo((): Divergence[] => {
+    if (myMapDefaults.size === 0) return [];
+    const results: Divergence[] = [];
+    const checkConn = (conn: Connection, name: string, color: string) => {
+      for (const cat of conn.categories) {
+        const catDef = DEFAULT_CATEGORIES.find(c => c.id === cat.categoryId);
+        if (!catDef) continue;
+        for (const r of cat.ratings) {
+          const defaultTier = myMapDefaults.get(r.subcategory);
+          if (!defaultTier || defaultTier === r.tier) continue;
+          if (isPositive(defaultTier) !== isPositive(r.tier)) {
+            results.push({
+              dim: r.subcategory,
+              catColor: catDef.color,
+              connectionName: name,
+              connColor: color,
+              defaultTier,
+              connectionTier: r.tier,
+              more: isPositive(r.tier) && !isPositive(defaultTier),
+            });
+          }
+        }
+      }
+    };
+    checkConn(myConnection, myName, myConnection.color || '#C5A3CF');
+    checkConn(theirConnection, theirName, theirConnection.color || '#89CFF0');
+    // Sort: must-have deviations first (highest signal), then off-limits
+    results.sort((a, b) => {
+      const score = (d: Divergence) =>
+        (d.connectionTier === 'must-have' || d.defaultTier === 'must-have' ? 2 : 0) +
+        (d.connectionTier === 'off-limits' || d.defaultTier === 'off-limits' ? 1 : 0);
+      return score(b) - score(a);
+    });
+    return results.slice(0, 8);
+  }, [myConnection, theirConnection, myMapDefaults, myName, theirName]);
+
+  function divergenceText(d: Divergence): string {
+    const { dim, connectionName, defaultTier, connectionTier, more } = d;
+    if (more) {
+      if (connectionTier === 'must-have' && (defaultTier === 'maybe' || defaultTier === 'off-limits'))
+        return `You actively want ${dim} with ${connectionName} — typically you just keep it off the table`;
+      if (connectionTier === 'must-have')
+        return `${dim} becomes a genuine want with ${connectionName}, not just openness`;
+      return `You're more open to ${dim} with ${connectionName} than your usual default`;
+    } else {
+      if (connectionTier === 'off-limits' && (defaultTier === 'must-have' || defaultTier === 'open'))
+        return `${dim} is off the table with ${connectionName}, though it's usually available to you`;
+      if (defaultTier === 'must-have')
+        return `${dim} goes from a genuine want to unavailable with ${connectionName}`;
+      return `You hold ${dim} back with ${connectionName} — your default is more open`;
+    }
+  }
 
   const sentence = generateSentence(greenZone, tension, catScores, myName, theirName);
   const myColorRgb = hexToRgb(myConnection.color || '#C5A3CF');
@@ -926,6 +996,39 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
               myName={myName} theirName={theirName}
               myInitial={myInitial} theirInitial={theirInitial}
             />
+          </div>
+        </div>
+      )}
+
+      {/* ── Diverges from your defaults ── */}
+      {divergences.length > 0 && (
+        <div className="mx-5">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2 h-2 rounded-full" style={{ background: '#7B68B0' }} />
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.3)' }}>Diverges from your defaults</p>
+          </div>
+          <div className="rounded-3xl px-5 py-4 space-y-3" style={{ background: 'rgba(123,104,176,0.04)', border: '1.5px solid rgba(123,104,176,0.14)' }}>
+            {divergences.map((d, i) => {
+              const [r, g, b] = hexToRgb(d.connColor);
+              return (
+                <div key={i} className="flex items-start gap-3">
+                  <div
+                    className="mt-0.5 shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-white font-bold text-[9px]"
+                    style={{ background: d.connColor, boxShadow: `0 1px 6px rgba(${r},${g},${b},0.35)` }}
+                  >
+                    {d.connectionName[0]?.toUpperCase()}
+                  </div>
+                  <p className="text-sm leading-snug" style={{ color: 'rgba(0,0,0,0.65)', fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
+                    {divergenceText(d)}
+                  </p>
+                </div>
+              );
+            })}
+            {myMapDefaults.size === 0 && (
+              <p className="text-xs text-center py-2" style={{ color: 'rgba(0,0,0,0.3)' }}>
+                Complete your My Map to see how these connections diverge from your defaults
+              </p>
+            )}
           </div>
         </div>
       )}
