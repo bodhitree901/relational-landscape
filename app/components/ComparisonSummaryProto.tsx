@@ -434,47 +434,34 @@ function TensionCategorySheet({ catScore, dims, myName, theirName, myInitial, th
             return (
               <div
                 key={dim.subcategory}
-                style={{ minWidth: 'calc(100vw - 56px)', maxWidth: 340, scrollSnapAlign: 'start', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}
+                style={{ minWidth: 'calc(100vw - 56px)', maxWidth: 340, scrollSnapAlign: 'start', flexShrink: 0 }}
               >
-                {/* Spectrum card */}
-                <div className="rounded-3xl p-5" style={{ background: `rgba(${r},${g},${b},0.06)`, border: `1.5px solid rgba(${r},${g},${b},0.18)` }}>
-                  <p className="text-sm font-semibold mb-1" style={{ color: 'rgba(0,0,0,0.7)' }}>{dim.subcategory}</p>
-                  <p className="text-[11px] mb-4" style={{ color: 'rgba(0,0,0,0.35)' }}>{catScore.name}</p>
-                  <TensionSpectrumBar dim={dim} myInitial={myInitial} theirInitial={theirInitial} />
-                  <div className="flex justify-between mt-5 pt-2" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-                    <span className="text-[11px] font-semibold" style={{ color: TIER_COLORS[dim.myTier] }}>{myInitial}: {TIER_SHORT[dim.myTier]}</span>
-                    <span className="text-[11px] font-semibold" style={{ color: TIER_COLORS[dim.theirTier] }}>{theirInitial}: {TIER_SHORT[dim.theirTier]}</span>
+                <div className="rounded-3xl overflow-hidden" style={{ border: `1.5px solid rgba(${r},${g},${b},0.22)`, background: `rgba(${r},${g},${b},0.05)` }}>
+                  {/* Header */}
+                  <div className="px-5 pt-5 pb-3">
+                    <p className="text-base font-semibold" style={{ color: 'rgba(0,0,0,0.75)' }}>{dim.subcategory}</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>{catScore.name}</p>
                   </div>
-                </div>
 
-                {/* Convo starter card — only for biggest gaps */}
-                {isWorthConvo && (
-                  <div className="rounded-3xl overflow-hidden" style={{ border: '1.5px solid rgba(155,110,175,0.22)', background: 'rgba(155,110,175,0.05)' }}>
-                    {/* Bridge */}
-                    <div className="relative flex items-center justify-between px-6 py-4" style={{ background: 'rgba(155,110,175,0.09)' }}>
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ background: TIER_COLORS[wantsTier] }}>{wantsInitial}</span>
-                        <span className="text-[9px] font-semibold" style={{ color: TIER_COLORS[wantsTier] }}>{TIER_SHORT[wantsTier]}</span>
-                      </div>
-                      <div className="flex-1 flex flex-col items-center mx-3">
-                        <svg width="100%" height="18" viewBox="0 0 100 18" preserveAspectRatio="none">
-                          <path d="M 0 9 C 20 2, 80 2, 100 9" fill="none" stroke="rgba(155,110,175,0.45)" strokeWidth="2" strokeDasharray="4 3" />
-                          <circle cx="50" cy="5" r="2.5" fill="rgba(155,110,175,0.4)" />
-                        </svg>
-                      </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2" style={{ borderColor: TIER_COLORS[otherTier], color: TIER_COLORS[otherTier], background: TIER_BG[otherTier] }}>{otherInitial}</span>
-                        <span className="text-[9px] font-semibold" style={{ color: TIER_COLORS[otherTier] }}>{TIER_SHORT[otherTier]}</span>
-                      </div>
+                  {/* Spectrum bar */}
+                  <div className="px-5 pb-4">
+                    <TensionSpectrumBar dim={dim} myInitial={myInitial} theirInitial={theirInitial} />
+                    <div className="flex justify-between mt-4">
+                      <span className="text-[11px] font-semibold" style={{ color: TIER_COLORS[dim.myTier] }}>{myInitial}: {TIER_SHORT[dim.myTier]}</span>
+                      <span className="text-[11px] font-semibold" style={{ color: TIER_COLORS[dim.theirTier] }}>{theirInitial}: {TIER_SHORT[dim.theirTier]}</span>
                     </div>
-                    <div className="px-5 py-4">
+                  </div>
+
+                  {/* Conversation starter — only for biggest gaps */}
+                  {isWorthConvo && (
+                    <div className="px-5 py-4 mx-0" style={{ borderTop: `1px solid rgba(${r},${g},${b},0.15)`, background: 'rgba(155,110,175,0.07)' }}>
                       <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(155,110,175,0.7)' }}>Conversation starter</p>
                       <p className="text-sm leading-relaxed" style={{ color: 'rgba(0,0,0,0.6)', fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
                         &ldquo;{wantsName} really wants {dim.subcategory} in this connection. {otherName}, what makes this feel off the table — or is there a version of it that could work?&rdquo;
                       </p>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             );
           })}
@@ -559,6 +546,7 @@ interface Props {
 export default function ComparisonSummaryProto({ myConnection, theirConnection, myName, theirName }: Props) {
   const myInitial = myName[0]?.toUpperCase() || 'A';
   const theirInitial = theirName[0]?.toUpperCase() || 'B';
+  const [activeCatId, setActiveCatId] = useState<string | null>(null);
 
   const { catScores, greenZone, tension, sharedNonWants } = useMemo(() => {
     const theirMap = new Map<string, Map<string, Tier>>();
@@ -618,20 +606,25 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
         <p className="text-center text-xs mt-4 font-medium" style={{ color: 'rgba(0,0,0,0.3)' }}>{myName} &amp; {theirName}</p>
       </div>
 
-      {/* ── Bubble Map Overview ── */}
-      <div className="mx-5">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="w-2 h-2 rounded-full" style={{ background: 'rgba(0,0,0,0.2)' }} />
-          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.3)' }}>Connection Overview</p>
-        </div>
-        <div className="rounded-3xl py-5 px-3" style={{ background: 'rgba(0,0,0,0.02)', border: '1.5px solid rgba(0,0,0,0.06)' }}>
-          <BubbleMapOverview
-            catScores={catScores}
-            myInitial={myInitial}
-            theirInitial={theirInitial}
-            myColor={myConnection.color || '#C5A3CF'}
-            theirColor={theirConnection.color || '#89CFF0'}
-          />
+      {/* ── Alignment by Area (% cards) ── */}
+      <div>
+        <p className="px-6 text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: 'rgba(0,0,0,0.3)' }}>Alignment by Area · tap to explore</p>
+        <div className="flex gap-3 px-5 overflow-x-auto pb-1">
+          {[...catScores].sort((a, b) => b.ratio - a.ratio).map((cat) => {
+            const [r, g, b] = hexToRgb(cat.color);
+            const pct = Math.round(cat.ratio * 100);
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCatId(cat.id)}
+                className="shrink-0 flex flex-col items-center justify-center rounded-2xl px-3 py-4 transition-all active:scale-95"
+                style={{ width: 80, background: `rgba(${r},${g},${b},${0.12 + (1 - cat.ratio) * 0.12})`, border: `1.5px solid rgba(${r},${g},${b},0.25)`, boxShadow: `0 2px 10px rgba(${r},${g},${b},0.12)` }}
+              >
+                <span className="text-2xl font-extrabold leading-none" style={{ color: `rgba(${r},${g},${b},1)` }}>{pct}<span className="text-xs font-bold">%</span></span>
+                <span className="text-[9px] font-semibold uppercase tracking-wide text-center mt-1.5 leading-tight" style={{ color: 'rgba(0,0,0,0.45)' }}>{cat.name}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -686,5 +679,10 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
       )}
 
     </div>
+
+    {activeCatId && (() => {
+      const cat = catScores.find(c => c.id === activeCatId);
+      return cat ? <CategoryHeatmapPopup cat={cat} myInitial={myInitial} theirInitial={theirInitial} onClose={() => setActiveCatId(null)} /> : null;
+    })()}
   );
 }
