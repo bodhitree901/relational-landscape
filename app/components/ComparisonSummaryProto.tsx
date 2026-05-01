@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Connection, Tier, TIER_ORDER } from '../lib/types';
 import { DEFAULT_CATEGORIES } from '../lib/categories';
 import { SUBCATEGORY_DEFINITIONS } from '../lib/definitions';
@@ -600,6 +600,7 @@ function TensionExplorer({ tension, catScores, myInitial, theirInitial }: {
   const [catIndex, setCatIndex] = useState(0);
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
   const [activeDim, setActiveDim] = useState<DimData | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const tensionByCat = useMemo(() => {
     const map = new Map<string, { catScore: CatScore; dims: DimData[] }>();
@@ -613,10 +614,11 @@ function TensionExplorer({ tension, catScores, myInitial, theirInitial }: {
     return [...map.values()].sort((a, b) => b.dims.length - a.dims.length);
   }, [tension, catScores]);
 
-  const group = tensionByCat[catIndex];
   const activeCatData = tensionByCat.find(t => t.catScore.id === activeCatId);
 
-  if (!group) return null;
+  function scrollToIndex(i: number) {
+    scrollRef.current?.scrollTo({ left: i * (scrollRef.current.offsetWidth), behavior: 'smooth' });
+  }
 
   const VW = 320;
   const CAT_CX = 44;
@@ -626,99 +628,184 @@ function TensionExplorer({ tension, catScores, myInitial, theirInitial }: {
   const ROW_H = 44;
   const MAX_SHOWN = 7;
 
-  const { catScore, dims } = group;
-  const shown = dims.slice(0, MAX_SHOWN);
-  const n = shown.length;
-  const spreadH = Math.max(0, (n - 1) * ROW_H);
-  const groupH = Math.max(CAT_R * 2 + 28, spreadH + 56);
-  const catCY = groupH / 2;
-  const firstDimY = catCY - spreadH / 2;
-  const angleSpread = Math.min((n - 1) * 18, 72);
-  const [r, g, b] = hexToRgb(catScore.color);
-  const words = catScore.name.split(' ');
+  const currentCat = tensionByCat[catIndex];
+  const navColor = currentCat ? hexToRgb(currentCat.catScore.color) : [180, 130, 32] as const;
+  const [nr, ng, nb] = navColor;
 
   return (
     <>
       {/* Arrow navigation */}
       <div className="flex items-center justify-between mb-3">
         <button
-          onClick={() => setCatIndex(i => Math.max(0, i - 1))}
+          onClick={() => scrollToIndex(catIndex - 1)}
           disabled={catIndex === 0}
-          className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 disabled:opacity-20"
-          style={{ background: `rgba(${r},${g},${b},0.12)`, color: `rgba(${r},${g},${b},1)` }}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-lg transition-all active:scale-90 disabled:opacity-20"
+          style={{ background: `rgba(${nr},${ng},${nb},0.12)`, color: `rgba(${nr},${ng},${nb},1)` }}
         >‹</button>
         <div className="text-center">
-          <p className="text-xs font-semibold" style={{ color: `rgba(${r},${g},${b},1)` }}>{catScore.name}</p>
+          <p className="text-xs font-semibold" style={{ color: `rgba(${nr},${ng},${nb},1)` }}>{currentCat?.catScore.name}</p>
           <p className="text-[10px]" style={{ color: 'rgba(0,0,0,0.25)' }}>{catIndex + 1} of {tensionByCat.length}</p>
         </div>
         <button
-          onClick={() => setCatIndex(i => Math.min(tensionByCat.length - 1, i + 1))}
+          onClick={() => scrollToIndex(catIndex + 1)}
           disabled={catIndex === tensionByCat.length - 1}
-          className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 disabled:opacity-20"
-          style={{ background: `rgba(${r},${g},${b},0.12)`, color: `rgba(${r},${g},${b},1)` }}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-lg transition-all active:scale-90 disabled:opacity-20"
+          style={{ background: `rgba(${nr},${ng},${nb},0.12)`, color: `rgba(${nr},${ng},${nb},1)` }}
         >›</button>
       </div>
 
-      {/* Hub-and-spoke SVG for current category */}
-      <svg viewBox={`0 0 ${VW} ${groupH}`} width="100%" style={{ display: 'block' }}>
-        {/* Glow */}
-        <circle cx={CAT_CX} cy={catCY} r={CAT_R + 7} fill={`rgba(${r},${g},${b},0.1)`} />
-        {/* Circle — tap to open category sheet */}
-        <circle cx={CAT_CX} cy={catCY} r={CAT_R} fill={`rgba(${r},${g},${b},0.15)`} stroke={`rgba(${r},${g},${b},0.6)`} strokeWidth={2.5} style={{ cursor: 'pointer' }} onClick={() => setActiveCatId(catScore.id)} />
-        {words.length === 1 ? (
-          <text x={CAT_CX} y={catCY + 4} textAnchor="middle" fontSize="9" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{words[0].toUpperCase()}</text>
-        ) : words.length === 2 ? (
-          <>
-            <text x={CAT_CX} y={catCY - 2} textAnchor="middle" fontSize="8.5" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{words[0].toUpperCase()}</text>
-            <text x={CAT_CX} y={catCY + 9} textAnchor="middle" fontSize="8.5" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{words[1].toUpperCase()}</text>
-          </>
-        ) : (
-          <>
-            <text x={CAT_CX} y={catCY - 5} textAnchor="middle" fontSize="8" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{words[0].toUpperCase()}</text>
-            <text x={CAT_CX} y={catCY + 5} textAnchor="middle" fontSize="8" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{words.slice(1).join(' ').toUpperCase()}</text>
-          </>
-        )}
-        <text x={CAT_CX} y={catCY + 20} textAnchor="middle" fontSize="7.5" fontWeight="600" fill={`rgba(${r},${g},${b},0.65)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{dims.length} pts</text>
-
-        {/* Branches — each pill is independently tappable */}
-        {shown.map((dim, di) => {
-          const dimY = firstDimY + di * ROW_H;
-          const angleRad = ((-angleSpread / 2 + di * (n > 1 ? angleSpread / (n - 1) : 0)) * Math.PI) / 180;
-          const depX = CAT_CX + CAT_R * Math.cos(angleRad);
-          const depY = catCY + CAT_R * Math.sin(angleRad);
-          const isWorth = (dim.myTier === 'must-have' && dim.theirTier === 'off-limits') || (dim.theirTier === 'must-have' && dim.myTier === 'off-limits');
-          const hasMust = dim.myTier === 'must-have' || dim.theirTier === 'must-have';
-          const lineColor = isWorth ? '#D47020' : hasMust ? '#B8A520' : `rgba(${r},${g},${b},0.75)`;
-          const pillH = 30; const pillR = pillH / 2;
+      {/* Swipeable slides — one per category */}
+      <div
+        ref={scrollRef}
+        className="tension-scroll"
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          const i = Math.round(el.scrollLeft / el.offsetWidth);
+          if (i !== catIndex) setCatIndex(i);
+        }}
+        style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollbarWidth: 'none', alignItems: 'flex-start' }}
+      >
+        {tensionByCat.map(({ catScore, dims }) => {
+          const shown = dims.slice(0, MAX_SHOWN);
+          const n = shown.length;
+          const spreadH = Math.max(0, (n - 1) * ROW_H);
+          const groupH = Math.max(CAT_R * 2 + 28, spreadH + 56);
+          const catCY = groupH / 2;
+          const firstDimY = catCY - spreadH / 2;
+          const angleSpread = Math.min((n - 1) * 18, 72);
+          const [r, g, b] = hexToRgb(catScore.color);
+          const words = catScore.name.split(' ');
 
           return (
-            <g key={dim.subcategory}>
-              <path d={`M ${depX.toFixed(1)} ${depY.toFixed(1)} C ${(depX + 28).toFixed(1)} ${depY.toFixed(1)}, ${(PILL_X - 18).toFixed(1)} ${dimY.toFixed(1)}, ${PILL_X.toFixed(1)} ${dimY.toFixed(1)}`} fill="none" stroke={lineColor} strokeWidth={1.8} opacity={0.7} />
-              <circle cx={depX.toFixed(1)} cy={depY.toFixed(1)} r={4.5} fill={lineColor} />
-              {/* Pill — tap to open single dim sheet */}
-              <g style={{ cursor: 'pointer' }} onClick={() => setActiveDim(dim)}>
-                <rect x={PILL_X} y={(dimY - pillR).toFixed(1)} width={PILL_W} height={pillH} rx={pillR} fill={`rgba(${r},${g},${b},0.1)`} stroke={`rgba(${r},${g},${b},0.28)`} strokeWidth={1.5} />
-                <circle cx={(PILL_X + pillR).toFixed(1)} cy={dimY.toFixed(1)} r={3.5} fill={lineColor} />
-                <text x={(PILL_X + pillR * 2 + 4).toFixed(1)} y={(dimY + 4).toFixed(1)} fontSize="10" fontWeight="600" fill="rgba(0,0,0,0.68)" fontFamily="system-ui">{dim.subcategory.length > 22 ? dim.subcategory.slice(0, 21) + '…' : dim.subcategory}</text>
-                <circle cx={(PILL_X + PILL_W - 14).toFixed(1)} cy={(dimY - 4).toFixed(1)} r={4} fill={TIER_COLORS[dim.myTier]} opacity={0.9} />
-                <circle cx={(PILL_X + PILL_W - 14).toFixed(1)} cy={(dimY + 5).toFixed(1)} r={4} fill="none" stroke={TIER_COLORS[dim.theirTier]} strokeWidth={1.5} opacity={0.9} />
-              </g>
-            </g>
+            <div key={catScore.id} style={{ minWidth: '100%', scrollSnapAlign: 'start', flexShrink: 0 }}>
+              <svg viewBox={`0 0 ${VW} ${groupH}`} width="100%" style={{ display: 'block' }}>
+                <circle cx={CAT_CX} cy={catCY} r={CAT_R + 7} fill={`rgba(${r},${g},${b},0.1)`} />
+                <circle cx={CAT_CX} cy={catCY} r={CAT_R} fill={`rgba(${r},${g},${b},0.15)`} stroke={`rgba(${r},${g},${b},0.6)`} strokeWidth={2.5} style={{ cursor: 'pointer' }} onClick={() => setActiveCatId(catScore.id)} />
+                {words.length === 1 ? (
+                  <text x={CAT_CX} y={catCY + 4} textAnchor="middle" fontSize="9" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{words[0].toUpperCase()}</text>
+                ) : words.length === 2 ? (
+                  <>
+                    <text x={CAT_CX} y={catCY - 2} textAnchor="middle" fontSize="8.5" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{words[0].toUpperCase()}</text>
+                    <text x={CAT_CX} y={catCY + 9} textAnchor="middle" fontSize="8.5" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{words[1].toUpperCase()}</text>
+                  </>
+                ) : (
+                  <>
+                    <text x={CAT_CX} y={catCY - 5} textAnchor="middle" fontSize="8" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{words[0].toUpperCase()}</text>
+                    <text x={CAT_CX} y={catCY + 5} textAnchor="middle" fontSize="8" fontWeight="800" fill={`rgba(${r},${g},${b},1)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{words.slice(1).join(' ').toUpperCase()}</text>
+                  </>
+                )}
+                <text x={CAT_CX} y={catCY + 20} textAnchor="middle" fontSize="7.5" fontWeight="600" fill={`rgba(${r},${g},${b},0.65)`} fontFamily="system-ui" style={{ pointerEvents: 'none' }}>{dims.length} pts</text>
+
+                {shown.map((dim, di) => {
+                  const dimY = firstDimY + di * ROW_H;
+                  const angleRad = ((-angleSpread / 2 + di * (n > 1 ? angleSpread / (n - 1) : 0)) * Math.PI) / 180;
+                  const depX = CAT_CX + CAT_R * Math.cos(angleRad);
+                  const depY = catCY + CAT_R * Math.sin(angleRad);
+                  const isWorth = (dim.myTier === 'must-have' && dim.theirTier === 'off-limits') || (dim.theirTier === 'must-have' && dim.myTier === 'off-limits');
+                  const hasMust = dim.myTier === 'must-have' || dim.theirTier === 'must-have';
+                  const lineColor = isWorth ? '#D47020' : hasMust ? '#B8A520' : `rgba(${r},${g},${b},0.75)`;
+                  const pillH = 30; const pillR = pillH / 2;
+                  return (
+                    <g key={dim.subcategory}>
+                      <path d={`M ${depX.toFixed(1)} ${depY.toFixed(1)} C ${(depX + 28).toFixed(1)} ${depY.toFixed(1)}, ${(PILL_X - 18).toFixed(1)} ${dimY.toFixed(1)}, ${PILL_X.toFixed(1)} ${dimY.toFixed(1)}`} fill="none" stroke={lineColor} strokeWidth={1.8} opacity={0.7} />
+                      <circle cx={depX.toFixed(1)} cy={depY.toFixed(1)} r={4.5} fill={lineColor} />
+                      <g style={{ cursor: 'pointer' }} onClick={() => setActiveDim(dim)}>
+                        <rect x={PILL_X} y={(dimY - pillR).toFixed(1)} width={PILL_W} height={pillH} rx={pillR} fill={`rgba(${r},${g},${b},0.1)`} stroke={`rgba(${r},${g},${b},0.28)`} strokeWidth={1.5} />
+                        <circle cx={(PILL_X + pillR).toFixed(1)} cy={dimY.toFixed(1)} r={3.5} fill={lineColor} />
+                        <text x={(PILL_X + pillR * 2 + 4).toFixed(1)} y={(dimY + 4).toFixed(1)} fontSize="10" fontWeight="600" fill="rgba(0,0,0,0.68)" fontFamily="system-ui">{dim.subcategory.length > 22 ? dim.subcategory.slice(0, 21) + '…' : dim.subcategory}</text>
+                        <circle cx={(PILL_X + PILL_W - 14).toFixed(1)} cy={(dimY - 4).toFixed(1)} r={4} fill={TIER_COLORS[dim.myTier]} opacity={0.9} />
+                        <circle cx={(PILL_X + PILL_W - 14).toFixed(1)} cy={(dimY + 5).toFixed(1)} r={4} fill="none" stroke={TIER_COLORS[dim.theirTier]} strokeWidth={1.5} opacity={0.9} />
+                      </g>
+                    </g>
+                  );
+                })}
+                {dims.length > MAX_SHOWN && (
+                  <text x={(PILL_X + 8).toFixed(1)} y={(groupH - 8).toFixed(1)} fontSize="8" fontWeight="600" fill={`rgba(${r},${g},${b},0.55)`} fontFamily="system-ui" style={{ cursor: 'pointer' }} onClick={() => setActiveCatId(catScore.id)}>
+                    +{dims.length - MAX_SHOWN} more · tap circle to see all
+                  </text>
+                )}
+              </svg>
+            </div>
           );
         })}
-
-        {dims.length > MAX_SHOWN && (
-          <text x={(PILL_X + 8).toFixed(1)} y={(groupH - 8).toFixed(1)} fontSize="8" fontWeight="600" fill={`rgba(${r},${g},${b},0.55)`} fontFamily="system-ui" style={{ cursor: 'pointer' }} onClick={() => setActiveCatId(catScore.id)}>
-            +{dims.length - MAX_SHOWN} more · tap circle to see all
-          </text>
-        )}
-      </svg>
+      </div>
+      <style>{`.tension-scroll::-webkit-scrollbar { display: none; }`}</style>
 
       {activeDim && <SingleDimSheet dim={activeDim} myInitial={myInitial} theirInitial={theirInitial} onClose={() => setActiveDim(null)} />}
       {activeCatData && (
         <TensionCategorySheet catScore={activeCatData.catScore} dims={activeCatData.dims} myInitial={myInitial} theirInitial={theirInitial} onClose={() => setActiveCatId(null)} />
       )}
     </>
+  );
+}
+
+// ── Zone Swiper ───────────────────────────────────────────────────────────────
+
+function ZoneSwiper({ greenZone, sharedNonWants, myInitial, theirInitial }: {
+  greenZone: DimData[]; sharedNonWants: DimData[]; myInitial: string; theirInitial: string;
+}) {
+  const [activeZone, setActiveZone] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  function scrollTo(i: number) {
+    scrollRef.current?.scrollTo({ left: i * (scrollRef.current.offsetWidth), behavior: 'smooth' });
+  }
+
+  return (
+    <div className="mx-5">
+      <div className="flex items-center gap-2 mb-4">
+        <span className="w-2 h-2 rounded-full transition-colors" style={{ background: activeZone === 0 ? '#5BA84D' : '#D47020' }} />
+        <p className="text-[10px] font-semibold uppercase tracking-widest transition-colors" style={{ color: 'rgba(0,0,0,0.3)' }}>
+          {activeZone === 0 ? 'Green Zone' : "Red Zone — our shared no's"}
+        </p>
+        <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.2)' }}>tap a segment</span>
+      </div>
+      <div
+        className="rounded-3xl overflow-hidden"
+        style={{
+          background: activeZone === 0 ? 'rgba(91,168,77,0.06)' : 'rgba(212,112,32,0.06)',
+          border: `1.5px solid ${activeZone === 0 ? 'rgba(91,168,77,0.18)' : 'rgba(212,112,32,0.18)'}`,
+          transition: 'background 0.3s ease, border-color 0.3s ease',
+        }}
+      >
+        <div
+          ref={scrollRef}
+          className="zone-scroll"
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            setActiveZone(Math.round(el.scrollLeft / el.offsetWidth));
+          }}
+          style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}
+        >
+          <div style={{ minWidth: '100%', scrollSnapAlign: 'start', flexShrink: 0, padding: '24px 20px' }}>
+            {greenZone.length > 0
+              ? <GreenZoneRing greenZone={greenZone} myInitial={myInitial} theirInitial={theirInitial} />
+              : <p className="text-center text-sm py-8 opacity-30">No shared yes&apos;s yet</p>
+            }
+          </div>
+          <div style={{ minWidth: '100%', scrollSnapAlign: 'start', flexShrink: 0, padding: '24px 20px' }}>
+            {sharedNonWants.length > 0
+              ? <RedZonePentagon redZone={sharedNonWants} myInitial={myInitial} theirInitial={theirInitial} />
+              : <p className="text-center text-sm py-8 opacity-30">No shared no&apos;s yet</p>
+            }
+          </div>
+        </div>
+        <div className="flex justify-end px-5 pb-4">
+          <button
+            onClick={() => scrollTo(activeZone === 0 ? 1 : 0)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-95"
+            style={{
+              background: activeZone === 0 ? 'rgba(212,112,32,0.1)' : 'rgba(91,168,77,0.1)',
+              color: activeZone === 0 ? '#D47020' : '#5BA84D',
+              border: `1px solid ${activeZone === 0 ? 'rgba(212,112,32,0.22)' : 'rgba(91,168,77,0.22)'}`,
+            }}
+          >
+            {activeZone === 0 ? 'Red Zone →' : '← Green Zone'}
+          </button>
+        </div>
+      </div>
+      <style>{`.zone-scroll::-webkit-scrollbar { display: none; }`}</style>
+    </div>
   );
 }
 
@@ -735,7 +822,6 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
   const myInitial = myName[0]?.toUpperCase() || 'A';
   const theirInitial = theirName[0]?.toUpperCase() || 'B';
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
-  const [activeZone, setActiveZone] = useState(0);
 
   const { catScores, greenZone, tension, sharedNonWants } = useMemo(() => {
     const theirMap = new Map<string, Map<string, Tier>>();
@@ -820,47 +906,10 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
 
       {/* ── Green Zone / Red Zone card ── */}
       {(greenZone.length > 0 || sharedNonWants.length > 0) && (
-        <div className="mx-5">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="w-2 h-2 rounded-full" style={{ background: activeZone === 0 ? '#5BA84D' : '#D47020' }} />
-            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.3)' }}>
-              {activeZone === 0 ? 'Green Zone' : 'Red Zone — our shared no’s'}
-            </p>
-            <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.2)' }}>tap a segment</span>
-          </div>
-          <div
-            className="rounded-3xl px-5 py-6"
-            style={{
-              background: activeZone === 0 ? 'rgba(91,168,77,0.06)' : 'rgba(212,112,32,0.06)',
-              border: `1.5px solid ${activeZone === 0 ? 'rgba(91,168,77,0.18)' : 'rgba(212,112,32,0.18)'}`,
-              transition: 'background 0.3s ease, border-color 0.3s ease',
-            }}
-          >
-            {activeZone === 0
-              ? (greenZone.length > 0
-                  ? <GreenZoneRing greenZone={greenZone} myInitial={myInitial} theirInitial={theirInitial} />
-                  : <p className="text-center text-sm py-8 opacity-30">No shared yes&apos;s yet</p>
-                )
-              : (sharedNonWants.length > 0
-                  ? <RedZonePentagon redZone={sharedNonWants} myInitial={myInitial} theirInitial={theirInitial} />
-                  : <p className="text-center text-sm py-8 opacity-30">No shared no&apos;s yet</p>
-                )
-            }
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setActiveZone(activeZone === 0 ? 1 : 0)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-95"
-                style={{
-                  background: activeZone === 0 ? 'rgba(212,112,32,0.1)' : 'rgba(91,168,77,0.1)',
-                  color: activeZone === 0 ? '#D47020' : '#5BA84D',
-                  border: `1px solid ${activeZone === 0 ? 'rgba(212,112,32,0.22)' : 'rgba(91,168,77,0.22)'}`,
-                }}
-              >
-                {activeZone === 0 ? <>Red Zone →</> : <><span>←</span> Green Zone</>}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ZoneSwiper
+          greenZone={greenZone} sharedNonWants={sharedNonWants}
+          myInitial={myInitial} theirInitial={theirInitial}
+        />
       )}
 
       {/* ── Tension Explorer ── */}
@@ -871,11 +920,13 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
             <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.3)' }}>Tension Points</p>
             <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.2)' }}>{tension.length} differences</span>
           </div>
-          <TensionExplorer
-            tension={tension} catScores={catScores}
-            myName={myName} theirName={theirName}
-            myInitial={myInitial} theirInitial={theirInitial}
-          />
+          <div className="rounded-3xl px-5 py-5" style={{ background: 'rgba(212,112,32,0.04)', border: '1.5px solid rgba(212,112,32,0.12)' }}>
+            <TensionExplorer
+              tension={tension} catScores={catScores}
+              myName={myName} theirName={theirName}
+              myInitial={myInitial} theirInitial={theirInitial}
+            />
+          </div>
         </div>
       )}
 
