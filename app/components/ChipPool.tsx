@@ -118,7 +118,7 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
   const lines = labelLines[tier.label] || [tier.label];
 
   const scale = active ? 1.08 : showHints ? 1.02 : 1;
-  const fillOpacity = active ? 0.75 : showHints ? 0.5 : 0.28;
+  const fillOpacity = active ? 1 : showHints ? 0.9 : 0.75;
 
   return (
     <>
@@ -127,7 +127,7 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
         className="absolute z-10 pointer-events-none"
         style={{
           ...quadrantStyle[corner],
-          background: `radial-gradient(ellipse at ${gradientOrigin[corner]}, ${tier.color}CC 0%, ${tier.color}55 40%, transparent 75%)`,
+          background: `radial-gradient(ellipse at ${gradientOrigin[corner]}, ${tier.color} 0%, ${tier.color}DD 35%, ${tier.color}55 65%, transparent 85%)`,
           opacity: fillOpacity,
           transition: 'opacity 0.25s ease-out',
         }}
@@ -146,7 +146,7 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
         >
           {lines.map((line, i) => {
             const isOrLine = i === lines.length - 1 && tier.label === 'Not Available For';
-            const textOpacity = active ? 1 : showHints ? 0.75 : 0.5;
+            const textOpacity = active ? 1 : showHints ? 0.95 : 0.8;
             return (
               <div
                 key={i}
