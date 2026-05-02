@@ -24,19 +24,16 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
 
         <div className="space-y-4 mb-8 text-sm leading-relaxed" style={{ color: 'rgba(0,0,0,0.6)' }}>
           <p>
-            If you're here, it's probably because you want great relationships and tryin' to get more real in your connections.
-          </p>
-          <p>
             So much of how we show up in relationships was shaped long before we had a say — by the families we grew up in, the cultures we were part of, the stories we absorbed about what love and connection are supposed to look like.
           </p>
           <p>
-            This app was created on the basis that relationships thrive when people have a choice in how they relate and can actually consent. Think about how unique and amazing every individual is. Doesn't it make sense that each relationship would have that same uniqueness? Now is your time to slow down and get real with yourself about what you actually want, need, and feel — both in specific relationships and across your life as a whole.
+            This app was created to support you to find your own relational clarity and where you want to show up in your connections rather than engaging unconsciously, on the basis of "shoulds" and "supposed to's". Now is your time to slow down and get real with yourself about what you actually want, need, and feel.
           </p>
           <p>
-            We've done our best to name and make visible the many small, often unspoken aspects of relationship — so you can meet them with fresh eyes and real honesty. A big shout out goes to the Relationship Anarchy Smorgasbord and the Relationship Menu — two beautiful tools that help people discover their true yes's and no's across every dimension of connection.
+            We've done our best to name and make visible the many small, often unspoken aspects of relationship — so you can meet them with fresh eyes and real honesty. A big thank you to the Relationship Anarchy Smorgasbord and the Relationship Menu — two beautiful tools that help people discover their true yes's and no's across dimensions of connection.
           </p>
           <p>
-            This process is designed to opening up conversations in collaboration with the people in your life. Your answers will for sure continue to evolve as you grow and learn in your life!
+            This process is designed to open up conversations in collaboration with the people in your life. Your answers will for sure continue to evolve as you grow and learn in your life!
           </p>
           <p className="font-medium" style={{ color: 'rgba(0,0,0,0.75)' }}>
             May your journey begin well.
