@@ -79,27 +79,22 @@ const SIDE_TO_CORNER: Record<string, string> = {
   left: 'bottom-left',
 };
 
-function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: TierConfig; active: boolean; corner: string; isDragging: boolean }) {
-  // Each quadrant fills its half of the screen; gradient bleeds from the corner inward
-  const quadrantStyle: Record<string, React.CSSProperties> = {
-    'top-left':     { top: 0, left: 0, width: '50%', height: '50%' },
-    'top-right':    { top: 0, right: 0, width: '50%', height: '50%' },
-    'bottom-left':  { bottom: 0, left: 0, width: '50%', height: '50%' },
-    'bottom-right': { bottom: 0, right: 0, width: '50%', height: '50%' },
-  };
+const GAP = 5; // px gap between quadrants and screen edges
 
-  const gradientOrigin: Record<string, string> = {
-    'top-left': '0% 0%',
-    'top-right': '100% 0%',
-    'bottom-left': '0% 100%',
-    'bottom-right': '100% 100%',
+function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: TierConfig; active: boolean; corner: string; isDragging: boolean }) {
+  // Rounded rectangles with a small gap — like the reference Eisenhower matrix
+  const quadrantStyle: Record<string, React.CSSProperties> = {
+    'top-left':     { top: GAP, left: GAP, right: `calc(50% + ${GAP / 2}px)`, bottom: `calc(50% + ${GAP / 2}px)` },
+    'top-right':    { top: GAP, right: GAP, left: `calc(50% + ${GAP / 2}px)`, bottom: `calc(50% + ${GAP / 2}px)` },
+    'bottom-left':  { bottom: GAP, left: GAP, right: `calc(50% + ${GAP / 2}px)`, top: `calc(50% + ${GAP / 2}px)` },
+    'bottom-right': { bottom: GAP, right: GAP, left: `calc(50% + ${GAP / 2}px)`, top: `calc(50% + ${GAP / 2}px)` },
   };
 
   const labelPos: Record<string, React.CSSProperties> = {
-    'top-left':     { top: 18, left: 18, textAlign: 'left' },
-    'top-right':    { top: 18, right: 18, textAlign: 'right' },
-    'bottom-left':  { bottom: 32, left: 18, textAlign: 'left' },
-    'bottom-right': { bottom: 32, right: 18, textAlign: 'right' },
+    'top-left':     { top: 16, left: 16, textAlign: 'left' },
+    'top-right':    { top: 16, right: 16, textAlign: 'right' },
+    'bottom-left':  { bottom: 16, left: 16, textAlign: 'left' },
+    'bottom-right': { bottom: 16, right: 16, textAlign: 'right' },
   };
 
   const origin: Record<string, string> = {
@@ -117,36 +112,40 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
   };
   const lines = labelLines[tier.label] || [tier.label];
 
-  const scale = active ? 1.08 : showHints ? 1.02 : 1;
-  const fillOpacity = active ? 1 : showHints ? 0.9 : 0.75;
+  const scale = active ? 1.05 : 1;
+  // Pastel at rest, fuller when active
+  const fillOpacity = active ? 0.55 : showHints ? 0.45 : 0.32;
 
   return (
     <>
-      {/* Quadrant background — soft radial gradient from corner, no hard edges */}
+      {/* Rounded quadrant */}
       <div
         className="absolute z-10 pointer-events-none"
         style={{
           ...quadrantStyle[corner],
-          background: `radial-gradient(ellipse at ${gradientOrigin[corner]}, ${tier.color} 0%, ${tier.color}BB 100%)`,
+          borderRadius: 20,
+          background: tier.color,
           opacity: fillOpacity,
-          transition: 'opacity 0.25s ease-out',
+          transition: 'opacity 0.2s ease-out',
         }}
       />
 
-      {/* Label anchored in each corner */}
-      <div className="absolute inset-0 z-30 pointer-events-none">
+      {/* Label inside quadrant */}
+      <div
+        className="absolute z-30 pointer-events-none"
+        style={{ ...quadrantStyle[corner], borderRadius: 20, overflow: 'hidden' }}
+      >
         <div
           className="absolute"
           style={{
             ...labelPos[corner],
             transform: `scale(${scale})`,
             transformOrigin: origin[corner],
-            transition: 'all 0.25s ease-out',
+            transition: 'all 0.2s ease-out',
           }}
         >
           {lines.map((line, i) => {
             const isOrLine = i === lines.length - 1 && tier.label === 'Not Available For';
-            const textOpacity = active ? 1 : showHints ? 0.95 : 0.8;
             return (
               <div
                 key={i}
@@ -157,9 +156,8 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
                   lineHeight: 1.25,
                   letterSpacing: '0.06em',
                   textTransform: 'uppercase',
-                  filter: 'brightness(0.7)',
-                  opacity: isOrLine ? textOpacity * 0.7 : textOpacity,
-                  transition: 'opacity 0.25s ease-out',
+                  filter: 'brightness(0.65)',
+                  opacity: isOrLine ? 0.65 : 1,
                 }}
               >
                 {line}
