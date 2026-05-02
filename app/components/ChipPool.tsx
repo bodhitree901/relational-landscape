@@ -127,7 +127,7 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
         className="absolute z-10 pointer-events-none"
         style={{
           ...quadrantStyle[corner],
-          background: `radial-gradient(ellipse at ${gradientOrigin[corner]}, ${tier.color} 0%, ${tier.color}DD 35%, ${tier.color}55 65%, transparent 85%)`,
+          background: `radial-gradient(ellipse at ${gradientOrigin[corner]}, ${tier.color} 0%, ${tier.color}BB 100%)`,
           opacity: fillOpacity,
           transition: 'opacity 0.25s ease-out',
         }}
