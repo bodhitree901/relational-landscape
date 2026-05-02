@@ -1,13 +1,22 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Connection, Tier } from '../lib/types';
 import { getConnections } from '../lib/storage';
 import { DEFAULT_CATEGORIES } from '../lib/categories';
-import { MENU_TIER_COLORS, type MenuTier } from '../lib/menu-categories';
+import { type MenuTier } from '../lib/menu-categories';
 import { ConnectionCircle } from '../components/ColorPicker';
 import { SUBCATEGORY_DEFINITIONS } from '../lib/definitions';
+
+// ── constants ─────────────────────────────────────────────────────────────────
+
+const COMPARE_A_COLOR = '#7B68B0';
+const COMPARE_B_COLOR = '#80C9C1';
+
+// ── types ─────────────────────────────────────────────────────────────────────
+
+type WantItem = { item: string; tier: MenuTier; categoryId: string };
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -20,14 +29,14 @@ function hexToRgb(hex: string) {
 
 function isPositive(t: Tier) { return t === 'must-have' || t === 'open'; }
 
-function getMyMap(): { item: string; tier: MenuTier; categoryId: string }[] {
+function getMyMap(): WantItem[] {
   if (typeof window === 'undefined') return [];
   try {
     const data = localStorage.getItem('rl_my_menu');
     if (!data) return [];
     const profiles: { categoryId: string; ratings: { item: string; tier: MenuTier }[] }[] = JSON.parse(data);
     const seen = new Set<string>();
-    const items: { item: string; tier: MenuTier; categoryId: string }[] = [];
+    const items: WantItem[] = [];
     for (const p of profiles) {
       for (const r of p.ratings) {
         if (!seen.has(r.item)) { seen.add(r.item); items.push({ item: r.item, tier: r.tier, categoryId: p.categoryId }); }
@@ -40,6 +49,8 @@ function getMyMap(): { item: string; tier: MenuTier; categoryId: string }[] {
 const TIER_COLORS_DARK: Record<string, string> = {
   'must-have': '#007A6B', 'open': '#5BA84D', 'maybe': '#B8A520', 'off-limits': '#D47020',
 };
+
+const SLIDE_UP_STYLE = `@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`;
 
 // ── CoverageSheet — who covers a dimension ───────────────────────────────────
 
@@ -76,115 +87,185 @@ function CoverageSheet({ item, categoryColor, coveringConns, onClose }: {
           ))}
         </div>
       </div>
-      <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
+      <style>{SLIDE_UP_STYLE}</style>
     </>
   );
 }
 
-// ── GapBars — Unmet Wants ─────────────────────────────────────────────────────
+// ── UnmetSheet — dimensions missing coverage ──────────────────────────────────
 
-function GapBars({ unmetByCategory, coveredByCategory }: {
-  unmetByCategory: Map<string, { item: string; tier: MenuTier; categoryId: string }[]>;
-  coveredByCategory: Map<string, { item: string; tier: MenuTier; categoryId: string }[]>;
+function UnmetSheet({ catDef, unmet, onClose }: {
+  catDef: typeof DEFAULT_CATEGORIES[0]; unmet: WantItem[]; onClose: () => void;
 }) {
-  const [expandedCat, setExpandedCat] = useState<string | null>(null);
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl overflow-hidden" style={{ background: 'var(--background)', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '72vh', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.28s cubic-bezier(0.34,1.2,0.64,1)' }}>
+        <div className="px-6 pt-4 pb-4 shrink-0" style={{ background: 'linear-gradient(135deg, rgba(212,112,32,0.12), rgba(212,112,32,0.06))' }}>
+          <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: 'rgba(212,112,32,0.3)' }} />
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-extrabold" style={{ color: 'rgba(0,0,0,0.75)' }}>{catDef.name}</h3>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>
+                {unmet.length} unmet want{unmet.length !== 1 ? 's' : ''} in this area
+              </p>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background: 'rgba(212,112,32,0.12)', color: 'rgba(0,0,0,0.4)' }}>✕</button>
+          </div>
+        </div>
+        <div className="overflow-y-auto px-5 pb-8 pt-3 space-y-2">
+          {unmet.map((want) => {
+            const def = SUBCATEGORY_DEFINITIONS[want.item];
+            return (
+              <div key={want.item} className="rounded-2xl px-4 py-3" style={{ background: 'rgba(212,112,32,0.07)', border: '1.5px solid rgba(212,112,32,0.18)' }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-semibold" style={{ color: 'rgba(0,0,0,0.72)' }}>{want.item}</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full ml-auto font-medium shrink-0" style={{ background: want.tier === 'must-have' ? 'rgba(212,112,32,0.25)' : 'rgba(212,112,32,0.12)', color: '#D47020' }}>
+                    {want.tier === 'must-have' ? 'Must-Have' : 'Want'}
+                  </span>
+                </div>
+                {def && <p className="text-[11px] leading-relaxed" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', color: 'rgba(0,0,0,0.4)' }}>{def}</p>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <style>{SLIDE_UP_STYLE}</style>
+    </>
+  );
+}
 
-  type WantItem = { item: string; tier: MenuTier; categoryId: string };
-  type RowData = { catDef: typeof DEFAULT_CATEGORIES[0]; unmet: WantItem[]; covered: WantItem[]; total: number; coverPct: number };
-  const rows = useMemo((): RowData[] => {
+// ── UnmetBarChart — bar graph of gaps per category ────────────────────────────
+
+type BarRow = { catDef: typeof DEFAULT_CATEGORIES[0]; unmet: WantItem[]; covered: WantItem[]; total: number };
+
+function UnmetBarChart({ unmetByCategory, coveredByCategory }: {
+  unmetByCategory: Map<string, WantItem[]>;
+  coveredByCategory: Map<string, WantItem[]>;
+}) {
+  const [activeSheet, setActiveSheet] = useState<BarRow | null>(null);
+
+  const rows = useMemo((): BarRow[] => {
     const allCatIds = new Set([...unmetByCategory.keys(), ...coveredByCategory.keys()]);
-    const result: RowData[] = [];
+    const result: BarRow[] = [];
     for (const catId of allCatIds) {
       const catDef = DEFAULT_CATEGORIES.find((c) => c.id === catId);
       if (!catDef) continue;
       const unmet = unmetByCategory.get(catId) || [];
       const covered = coveredByCategory.get(catId) || [];
-      const total = unmet.length + covered.length;
-      const coverPct = total > 0 ? (covered.length / total) * 100 : 0;
-      result.push({ catDef, unmet, covered, total, coverPct });
+      result.push({ catDef, unmet, covered, total: unmet.length + covered.length });
     }
-    return result;
+    return result.sort((a, b) => b.unmet.length - a.unmet.length);
   }, [unmetByCategory, coveredByCategory]);
 
+  const maxUnmet = Math.max(...rows.map((r) => r.unmet.length), 1);
+  const BAR_MAX_H = 100;
+
   return (
-    <div className="space-y-3">
-      {rows.map(({ catDef, unmet, covered, total, coverPct }) => {
-        const [r, g, b] = hexToRgb(catDef.color);
-        const isExpanded = expandedCat === catDef.id;
-        const gapPct = 100 - coverPct;
-        return (
-          <button
-            key={catDef.id}
-            onClick={() => setExpandedCat(isExpanded ? null : catDef.id)}
-            className="w-full text-left rounded-2xl px-4 pt-4 pb-3 transition-all active:scale-[0.99]"
-            style={{ background: `rgba(${r},${g},${b},0.06)`, border: `1.5px solid rgba(${r},${g},${b},0.2)` }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: catDef.color }}>{catDef.name}</p>
-              <p className="text-[10px]" style={{ color: 'rgba(0,0,0,0.35)' }}>
-                {unmet.length} gap{unmet.length !== 1 ? 's' : ''} · {covered.length} covered
-              </p>
-            </div>
-            {/* Bar */}
-            <div className="h-2 rounded-full overflow-hidden mb-3" style={{ background: 'rgba(0,0,0,0.06)' }}>
+    <>
+      <div
+        className="flex items-end gap-2 overflow-x-auto pb-1"
+        style={{ scrollbarWidth: 'none', paddingLeft: 2, paddingRight: 2 }}
+      >
+        {rows.map((row) => {
+          const { catDef, unmet, covered } = row;
+          const [r, g, b] = hexToRgb(catDef.color);
+          const hasGap = unmet.length > 0;
+          const coveredH = row.total > 0 ? (covered.length / row.total) * BAR_MAX_H : 0;
+          const unmetH = hasGap ? Math.max((unmet.length / maxUnmet) * BAR_MAX_H, 14) : 0;
+
+          return (
+            <button
+              key={catDef.id}
+              onClick={() => hasGap ? setActiveSheet(row) : undefined}
+              className="flex flex-col items-center gap-1.5 shrink-0 transition-all active:scale-95"
+              style={{ width: 46, cursor: hasGap ? 'pointer' : 'default' }}
+            >
+              <span
+                className="text-[11px] font-extrabold leading-none"
+                style={{ color: hasGap ? '#D47020' : `rgba(${r},${g},${b},0.6)` }}
+              >
+                {hasGap ? unmet.length : '✓'}
+              </span>
+
+              {/* Bar column */}
               <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${coverPct}%`,
-                  background: `rgba(${r},${g},${b},0.7)`,
-                }}
-              />
-            </div>
-            {/* Unmet chips — always visible */}
-            <div className="flex flex-wrap gap-1.5">
-              {unmet.map((item) => (
-                <span
-                  key={item.item}
-                  className="text-[10px] px-2.5 py-1 rounded-full font-medium"
-                  style={{
-                    background: item.tier === 'must-have' ? 'rgba(212,112,32,0.12)' : 'rgba(212,112,32,0.07)',
-                    color: '#D47020',
-                    border: `1px solid rgba(212,112,32,${item.tier === 'must-have' ? 0.3 : 0.15})`,
-                    fontWeight: item.tier === 'must-have' ? 700 : 500,
-                  }}
-                >
-                  {item.item}
-                </span>
-              ))}
-            </div>
-            {/* Covered chips — only when expanded */}
-            {isExpanded && covered.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-black/5" style={{ animation: 'tooltip-enter 0.15s ease-out' }}>
-                <p className="w-full text-[9px] uppercase tracking-wide font-semibold mb-0.5" style={{ color: 'rgba(0,0,0,0.25)' }}>Covered</p>
-                {covered.map((item) => (
-                  <span
-                    key={item.item}
-                    className="text-[10px] px-2.5 py-1 rounded-full font-medium"
-                    style={{ background: `rgba(${r},${g},${b},0.1)`, color: catDef.color, border: `1px solid rgba(${r},${g},${b},0.2)` }}
-                  >
-                    {item.item}
-                  </span>
-                ))}
+                className="w-full rounded-xl relative overflow-hidden"
+                style={{ height: BAR_MAX_H, background: 'rgba(0,0,0,0.04)' }}
+              >
+                {/* Covered layer (bottom, category color) */}
+                {covered.length > 0 && (
+                  <div
+                    className="absolute bottom-0 w-full"
+                    style={{
+                      height: coveredH,
+                      background: `rgba(${r},${g},${b},0.22)`,
+                      borderRadius: '8px 8px 0 0',
+                    }}
+                  />
+                )}
+                {/* Unmet layer (on top, orange) */}
+                {hasGap && (
+                  <div
+                    className="absolute bottom-0 w-full"
+                    style={{
+                      height: unmetH,
+                      background: 'linear-gradient(to top, rgba(212,112,32,0.9), rgba(212,112,32,0.6))',
+                      borderRadius: unmetH >= BAR_MAX_H ? 8 : '8px 8px 0 0',
+                    }}
+                  />
+                )}
+                {/* Tap hint for gap bars */}
+                {hasGap && (
+                  <div className="absolute inset-x-0 top-2 flex justify-center">
+                    <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.7)' }}>tap</span>
+                  </div>
+                )}
               </div>
-            )}
-          </button>
-        );
-      })}
-    </div>
+
+              {/* Category label */}
+              <span
+                className="text-center leading-tight"
+                style={{ fontSize: 8, color: 'rgba(0,0,0,0.4)', maxWidth: 46, wordBreak: 'break-word' }}
+              >
+                {catDef.name.length > 9 ? catDef.name.slice(0, 8) + '…' : catDef.name}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex gap-4 mt-3 px-1">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-sm" style={{ background: 'rgba(212,112,32,0.75)' }} />
+          <span className="text-[9px]" style={{ color: 'rgba(0,0,0,0.35)' }}>Unmet — tap to see</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-sm" style={{ background: 'rgba(0,148,131,0.3)' }} />
+          <span className="text-[9px]" style={{ color: 'rgba(0,0,0,0.35)' }}>Covered</span>
+        </div>
+      </div>
+
+      {activeSheet && (
+        <UnmetSheet catDef={activeSheet.catDef} unmet={activeSheet.unmet} onClose={() => setActiveSheet(null)} />
+      )}
+    </>
   );
 }
 
-// ── Coverage Rings — who covers what ─────────────────────────────────────────
+// ── CoverageCarousel — swipeable category accordion ───────────────────────────
 
-function CoverageRings({ coveredByCategory, unmetByCategory, connectionCoverage }: {
-  coveredByCategory: Map<string, { item: string; tier: MenuTier; categoryId: string }[]>;
-  unmetByCategory: Map<string, { item: string; tier: MenuTier; categoryId: string }[]>;
+function CoverageCarousel({ coveredByCategory, unmetByCategory, connectionCoverage }: {
+  coveredByCategory: Map<string, WantItem[]>;
+  unmetByCategory: Map<string, WantItem[]>;
   connectionCoverage: Map<string, { connName: string; connId: string; connColor: string; tier: Tier }[]>;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [activeIdx, setActiveIdx] = useState(0);
   const [activeItem, setActiveItem] = useState<{ item: string; catColor: string; conns: { connName: string; connId: string; connColor: string; tier: Tier }[] } | null>(null);
 
-  type WantItem2 = { item: string; tier: MenuTier; categoryId: string };
-  type CatData = { catDef: typeof DEFAULT_CATEGORIES[0]; covered: WantItem2[]; unmet: WantItem2[]; total: number; ratio: number };
+  type CatData = { catDef: typeof DEFAULT_CATEGORIES[0]; covered: WantItem[]; unmet: WantItem[]; total: number; ratio: number };
   const categories = useMemo((): CatData[] => {
     const allCatIds = new Set([...coveredByCategory.keys(), ...unmetByCategory.keys()]);
     const result: CatData[] = [];
@@ -194,82 +275,139 @@ function CoverageRings({ coveredByCategory, unmetByCategory, connectionCoverage 
       const covered = coveredByCategory.get(catId) || [];
       const unmet = unmetByCategory.get(catId) || [];
       const total = covered.length + unmet.length;
-      const ratio = total > 0 ? covered.length / total : 0;
-      result.push({ catDef, covered, unmet, total, ratio });
+      result.push({ catDef, covered, unmet, total, ratio: total > 0 ? covered.length / total : 0 });
     }
     return result;
   }, [coveredByCategory, unmetByCategory]);
 
-  return (
-    <div className="space-y-3">
-      {categories.map(({ catDef, covered, unmet, total, ratio }) => {
-        const [r, g, b] = hexToRgb(catDef.color);
-        const CX = 28, CY = 28, R = 20, STROKE = 7;
-        const circ = 2 * Math.PI * R;
-        const dash = ratio * circ;
-        const allItems = [...covered, ...unmet];
+  function scrollTo(idx: number) {
+    const el = scrollRef.current;
+    if (!el) return;
+    const child = el.children[idx] as HTMLElement;
+    if (child) el.scrollTo({ left: child.offsetLeft, behavior: 'smooth' });
+    setActiveIdx(idx);
+  }
 
-        return (
-          <div key={catDef.id} className="rounded-2xl px-4 py-4" style={{ background: `rgba(${r},${g},${b},0.05)`, border: `1.5px solid rgba(${r},${g},${b},0.18)` }}>
-            {/* Category header with mini ring */}
-            <div className="flex items-center gap-3 mb-3">
-              <svg width={56} height={56} viewBox="0 0 56 56" style={{ flexShrink: 0 }}>
-                <circle cx={CX} cy={CY} r={R} fill="none" stroke={`rgba(${r},${g},${b},0.12)`} strokeWidth={STROKE} />
-                <circle
-                  cx={CX} cy={CY} r={R} fill="none"
-                  stroke={`rgba(${r},${g},${b},0.85)`} strokeWidth={STROKE}
-                  strokeLinecap="round"
-                  strokeDasharray={`${dash.toFixed(2)} ${circ.toFixed(2)}`}
-                  strokeDashoffset={(circ / 4).toFixed(2)}
-                  transform="rotate(-90 28 28) scale(-1 1) translate(-56 0)"
-                  style={{ transform: 'rotate(-90deg)', transformOrigin: '28px 28px' }}
-                />
-                <text x={CX} y={CY + 4} textAnchor="middle" fontSize="9" fontWeight="700" fill={`rgba(${r},${g},${b},0.9)`} fontFamily="system-ui">
-                  {Math.round(ratio * 100)}%
-                </text>
-              </svg>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold" style={{ color: catDef.color }}>{catDef.name}</p>
-                <p className="text-[10px] mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>
-                  {covered.length} of {total} want{total !== 1 ? 's' : ''} covered
-                </p>
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    setActiveIdx(Math.round(el.scrollLeft / el.clientWidth));
+  }
+
+  const activeCat = categories[activeIdx];
+
+  return (
+    <div>
+      {/* Scrollable cards */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex overflow-x-auto"
+        style={{ scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}
+      >
+        {categories.map((cat) => {
+          const { catDef, covered, unmet, total, ratio } = cat;
+          const [r, g, b] = hexToRgb(catDef.color);
+          const CX = 28, CY = 28, R = 20, STROKE = 7;
+          const circ = 2 * Math.PI * R;
+          const dash = ratio * circ;
+          const allItems = [...covered, ...unmet];
+
+          return (
+            <div key={catDef.id} style={{ scrollSnapAlign: 'start', flexShrink: 0, width: '100%' }}>
+              <div
+                className="rounded-2xl px-4 py-4 mx-0.5"
+                style={{ background: `rgba(${r},${g},${b},0.05)`, border: `1.5px solid rgba(${r},${g},${b},0.18)` }}
+              >
+                {/* Category header */}
+                <div className="flex items-center gap-3 mb-3">
+                  <svg width={56} height={56} viewBox="0 0 56 56" style={{ flexShrink: 0 }}>
+                    <circle cx={CX} cy={CY} r={R} fill="none" stroke={`rgba(${r},${g},${b},0.12)`} strokeWidth={STROKE} />
+                    <circle
+                      cx={CX} cy={CY} r={R} fill="none"
+                      stroke={`rgba(${r},${g},${b},0.85)`} strokeWidth={STROKE}
+                      strokeLinecap="round"
+                      strokeDasharray={`${dash.toFixed(2)} ${circ.toFixed(2)}`}
+                      style={{ transform: 'rotate(-90deg)', transformOrigin: '28px 28px' }}
+                    />
+                    <text x={CX} y={CY + 4} textAnchor="middle" fontSize="9" fontWeight="700" fill={`rgba(${r},${g},${b},0.9)`} fontFamily="system-ui">
+                      {Math.round(ratio * 100)}%
+                    </text>
+                  </svg>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold" style={{ color: catDef.color }}>{catDef.name}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>
+                      {covered.length} of {total} want{total !== 1 ? 's' : ''} covered
+                    </p>
+                  </div>
+                </div>
+
+                {/* Items */}
+                <div className="space-y-1.5">
+                  {allItems.map((want) => {
+                    const coveringConns = (connectionCoverage.get(want.item) || []).filter((c) => isPositive(c.tier));
+                    const isCovered = coveringConns.length > 0;
+                    return (
+                      <button
+                        key={want.item}
+                        onClick={() => isCovered ? setActiveItem({ item: want.item, catColor: catDef.color, conns: coveringConns }) : undefined}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all active:scale-[0.98]"
+                        style={{
+                          background: isCovered ? `rgba(${r},${g},${b},0.08)` : 'rgba(212,112,32,0.06)',
+                          border: `1px solid ${isCovered ? `rgba(${r},${g},${b},0.2)` : 'rgba(212,112,32,0.18)'}`,
+                          cursor: isCovered ? 'pointer' : 'default',
+                        }}
+                      >
+                        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: isCovered ? catDef.color : '#D47020' }} />
+                        <span className="flex-1 text-left text-xs font-medium" style={{ color: 'rgba(0,0,0,0.68)' }}>{want.item}</span>
+                        {isCovered ? (
+                          <div className="flex -space-x-1 shrink-0">
+                            {coveringConns.slice(0, 4).map((c, i) => (
+                              <div key={i}><ConnectionCircle color={c.connColor} size={16} /></div>
+                            ))}
+                            {coveringConns.length > 4 && <span className="text-[9px] opacity-30 ml-1">+{coveringConns.length - 4}</span>}
+                          </div>
+                        ) : (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full shrink-0" style={{ background: 'rgba(212,112,32,0.12)', color: '#D47020' }}>gap</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-            {/* Items */}
-            <div className="space-y-1.5">
-              {allItems.map((want) => {
-                const coveringConns = (connectionCoverage.get(want.item) || []).filter((c) => isPositive(c.tier));
-                const isCovered = coveringConns.length > 0;
-                return (
-                  <button
-                    key={want.item}
-                    onClick={() => isCovered ? setActiveItem({ item: want.item, catColor: catDef.color, conns: coveringConns }) : undefined}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all active:scale-[0.98]"
-                    style={{
-                      background: isCovered ? `rgba(${r},${g},${b},0.08)` : 'rgba(212,112,32,0.06)',
-                      border: `1px solid ${isCovered ? `rgba(${r},${g},${b},0.2)` : 'rgba(212,112,32,0.18)'}`,
-                      cursor: isCovered ? 'pointer' : 'default',
-                    }}
-                  >
-                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: isCovered ? catDef.color : '#D47020' }} />
-                    <span className="flex-1 text-left text-xs font-medium" style={{ color: 'rgba(0,0,0,0.68)' }}>{want.item}</span>
-                    {isCovered ? (
-                      <div className="flex -space-x-1 shrink-0">
-                        {coveringConns.slice(0, 4).map((c, i) => (
-                          <div key={i}><ConnectionCircle color={c.connColor} size={16} /></div>
-                        ))}
-                        {coveringConns.length > 4 && <span className="text-[9px] opacity-30 ml-1">+{coveringConns.length - 4}</span>}
-                      </div>
-                    ) : (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full shrink-0" style={{ background: 'rgba(212,112,32,0.12)', color: '#D47020' }}>gap</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+
+      {/* Dot indicators + nav */}
+      <div className="flex items-center justify-center gap-3 mt-3">
+        <button
+          onClick={() => scrollTo(Math.max(0, activeIdx - 1))}
+          className="w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all"
+          style={{ background: activeIdx > 0 ? `rgba(${hexToRgb(activeCat?.catDef.color || '#000').join(',')},0.12)` : 'rgba(0,0,0,0.04)', color: activeIdx > 0 ? activeCat?.catDef.color : 'rgba(0,0,0,0.2)', cursor: activeIdx > 0 ? 'pointer' : 'default' }}
+        >
+          ‹
+        </button>
+        <div className="flex gap-1.5">
+          {categories.map((cat, i) => (
+            <button
+              key={i}
+              onClick={() => scrollTo(i)}
+              className="rounded-full transition-all"
+              style={{ height: 6, width: activeIdx === i ? 18 : 6, background: activeIdx === i ? cat.catDef.color : 'rgba(0,0,0,0.12)' }}
+            />
+          ))}
+        </div>
+        <button
+          onClick={() => scrollTo(Math.min(categories.length - 1, activeIdx + 1))}
+          className="w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all"
+          style={{ background: activeIdx < categories.length - 1 ? `rgba(${hexToRgb(activeCat?.catDef.color || '#000').join(',')},0.12)` : 'rgba(0,0,0,0.04)', color: activeIdx < categories.length - 1 ? activeCat?.catDef.color : 'rgba(0,0,0,0.2)', cursor: activeIdx < categories.length - 1 ? 'pointer' : 'default' }}
+        >
+          ›
+        </button>
+      </div>
+
       {activeItem && (
         <CoverageSheet
           item={activeItem.item}
@@ -282,7 +420,7 @@ function CoverageRings({ coveredByCategory, unmetByCategory, connectionCoverage 
   );
 }
 
-// ── Radar Chart ───────────────────────────────────────────────────────────────
+// ── RadarChart ────────────────────────────────────────────────────────────────
 
 function RadarChart({ connA, connB }: { connA: Connection; connB: Connection }) {
   const SIZE = 260;
@@ -313,8 +451,8 @@ function RadarChart({ connA, connB }: { connA: Connection; connB: Connection }) 
 
   const polyA = cats.map((cat) => getPoint(cat.id, connA).join(',')).join(' ');
   const polyB = cats.map((cat) => getPoint(cat.id, connB).join(',')).join(' ');
-  const [arA, agA, abA] = hexToRgb(connA.color || '#C5A3CF');
-  const [arB, agB, abB] = hexToRgb(connB.color || '#89CFF0');
+  const [arA, agA, abA] = hexToRgb(COMPARE_A_COLOR);
+  const [arB, agB, abB] = hexToRgb(COMPARE_B_COLOR);
 
   return (
     <svg viewBox={`0 0 ${SIZE} ${SIZE}`} width="100%" style={{ display: 'block', overflow: 'visible' }}>
@@ -336,9 +474,9 @@ function RadarChart({ connA, connB }: { connA: Connection; connB: Connection }) 
         <line key={cat.id} x1={CX} y1={CY} x2={ax.toFixed(1)} y2={ay.toFixed(1)} stroke="rgba(0,0,0,0.07)" strokeWidth="1" />
       ))}
       {/* Connection B polygon (behind) */}
-      <polygon points={polyB} fill={`rgba(${arB},${agB},${abB},0.15)`} stroke={`rgba(${arB},${agB},${abB},0.8)`} strokeWidth={2} strokeLinejoin="round" />
+      <polygon points={polyB} fill={`rgba(${arB},${agB},${abB},0.15)`} stroke={`rgba(${arB},${agB},${abB},0.85)`} strokeWidth={2} strokeLinejoin="round" />
       {/* Connection A polygon (front) */}
-      <polygon points={polyA} fill={`rgba(${arA},${agA},${abA},0.15)`} stroke={`rgba(${arA},${agA},${abA},0.8)`} strokeWidth={2} strokeLinejoin="round" />
+      <polygon points={polyA} fill={`rgba(${arA},${agA},${abA},0.15)`} stroke={`rgba(${arA},${agA},${abA},0.85)`} strokeWidth={2} strokeLinejoin="round" />
       {/* Axis labels */}
       {axisPoints.map(({ cat, lx, ly }) => {
         const words = cat.name.split(' ');
@@ -361,7 +499,6 @@ function RadarChart({ connA, connB }: { connA: Connection; connB: Connection }) 
           </text>
         );
       })}
-      {/* Center dot */}
       <circle cx={CX} cy={CY} r={3} fill="rgba(0,0,0,0.15)" />
     </svg>
   );
@@ -393,6 +530,9 @@ function ConnectionCompare({ connections }: { connections: Connection[] }) {
 
   if (connections.length < 2) return null;
 
+  const [rA, gA, bA] = hexToRgb(COMPARE_A_COLOR);
+  const [rB, gB, bB] = hexToRgb(COMPARE_B_COLOR);
+
   return (
     <div className="rounded-3xl overflow-hidden" style={{ background: 'rgba(0,0,0,0.02)', border: '1.5px solid rgba(0,0,0,0.07)' }}>
       {/* Pickers */}
@@ -401,12 +541,16 @@ function ConnectionCompare({ connections }: { connections: Connection[] }) {
           const sel = slot === 'A' ? selA : selB;
           const otherSel = slot === 'A' ? selB : selA;
           const setSel = slot === 'A' ? setSelA : setSelB;
-          const conn = connections.find((c) => c.id === sel);
+          const slotColor = slot === 'A' ? COMPARE_A_COLOR : COMPARE_B_COLOR;
+          const [sr, sg, sb] = hexToRgb(slotColor);
           return (
             <div key={slot}>
-              <p className="text-[9px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: 'rgba(0,0,0,0.3)' }}>
-                {slot === 'A' ? 'First connection' : 'Second connection'}
-              </p>
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ background: slotColor }} />
+                <p className="text-[9px] uppercase tracking-widest font-semibold" style={{ color: 'rgba(0,0,0,0.3)' }}>
+                  {slot === 'A' ? 'First connection' : 'Second connection'}
+                </p>
+              </div>
               <div className="flex gap-1.5 flex-wrap">
                 {connections.map((c) => (
                   <button
@@ -415,7 +559,7 @@ function ConnectionCompare({ connections }: { connections: Connection[] }) {
                     disabled={c.id === otherSel}
                     className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all disabled:opacity-25"
                     style={{
-                      background: sel === c.id ? (c.color || '#C5A3CF') : 'rgba(0,0,0,0.06)',
+                      background: sel === c.id ? `rgba(${sr},${sg},${sb},0.85)` : 'rgba(0,0,0,0.06)',
                       color: sel === c.id ? 'white' : 'rgba(0,0,0,0.5)',
                     }}
                   >
@@ -432,35 +576,38 @@ function ConnectionCompare({ connections }: { connections: Connection[] }) {
         <>
           {/* Similarity score */}
           {similarity !== null && (
-            <div className="mx-5 mb-4 rounded-2xl px-4 py-3 flex items-center gap-3" style={{ background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.06)' }}>
+            <div className="mx-5 mb-4 rounded-2xl px-4 py-3" style={{ background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.06)' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xl font-extrabold" style={{ fontFamily: 'Georgia, serif', color: 'rgba(0,0,0,0.72)' }}>{similarity}%</span>
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: 'rgba(0,0,0,0.55)' }}>openness alignment</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(0,0,0,0.32)' }}>shared dimensions where both are open — or both not</p>
+                </div>
+              </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ background: connA.color || '#C5A3CF' }} />
-                <span className="text-xs font-semibold">{connA.name}</span>
+                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: COMPARE_A_COLOR }} />
+                <span className="text-xs font-medium" style={{ color: 'rgba(0,0,0,0.5)' }}>{connA.name}</span>
+                <div className="flex-1 h-1.5 rounded-full overflow-hidden mx-1" style={{ background: 'rgba(0,0,0,0.06)' }}>
+                  <div className="h-full rounded-full" style={{ width: `${similarity}%`, background: `linear-gradient(90deg, ${COMPARE_A_COLOR}, ${COMPARE_B_COLOR})` }} />
+                </div>
+                <span className="text-xs font-medium" style={{ color: 'rgba(0,0,0,0.5)' }}>{connB.name}</span>
+                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: COMPARE_B_COLOR }} />
               </div>
-              <div className="flex-1 h-1.5 rounded-full overflow-hidden mx-2" style={{ background: 'rgba(0,0,0,0.06)' }}>
-                <div className="h-full rounded-full" style={{ width: `${similarity}%`, background: `linear-gradient(90deg, ${connA.color || '#C5A3CF'}, ${connB.color || '#89CFF0'})` }} />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold">{connB.name}</span>
-                <div className="w-3 h-3 rounded-full" style={{ background: connB.color || '#89CFF0' }} />
-              </div>
-              <span className="text-sm font-bold ml-2" style={{ color: 'rgba(0,0,0,0.55)' }}>{similarity}%</span>
             </div>
           )}
+
           {/* Radar */}
           <div className="px-4 pb-5">
             <RadarChart connA={connA} connB={connB} />
-            {/* Legend */}
-            <div className="flex justify-center gap-5 mt-2">
-              {[connA, connB].map((c) => {
-                const [r, g, b] = hexToRgb(c.color || '#C5A3CF');
-                return (
-                  <div key={c.id} className="flex items-center gap-1.5">
-                    <div className="w-8 h-1.5 rounded-full" style={{ background: `rgba(${r},${g},${b},0.8)` }} />
-                    <span className="text-[10px] font-medium" style={{ color: 'rgba(0,0,0,0.5)' }}>{c.name}</span>
-                  </div>
-                );
-              })}
+            <div className="flex justify-center gap-6 mt-2">
+              <div className="flex items-center gap-1.5">
+                <div className="w-8 h-1.5 rounded-full" style={{ background: `rgba(${rA},${gA},${bA},0.85)` }} />
+                <span className="text-[10px] font-medium" style={{ color: 'rgba(0,0,0,0.5)' }}>{connA.name}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-8 h-1.5 rounded-full" style={{ background: `rgba(${rB},${gB},${bB},0.85)` }} />
+                <span className="text-[10px] font-medium" style={{ color: 'rgba(0,0,0,0.5)' }}>{connB.name}</span>
+              </div>
             </div>
           </div>
         </>
@@ -473,7 +620,7 @@ function ConnectionCompare({ connections }: { connections: Connection[] }) {
 
 export default function PatternsPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
-  const [myMapItems, setMyMapItems] = useState<{ item: string; tier: MenuTier; categoryId: string }[]>([]);
+  const [myMapItems, setMyMapItems] = useState<WantItem[]>([]);
 
   useEffect(() => {
     setConnections(getConnections());
@@ -516,8 +663,8 @@ export default function PatternsPage() {
     return coverage && coverage.some((c) => isPositive(c.tier));
   });
 
-  const groupByCategory = (items: typeof myWants) => {
-    const map = new Map<string, typeof myWants>();
+  const groupByCategory = (items: WantItem[]) => {
+    const map = new Map<string, WantItem[]>();
     for (const item of items) {
       if (!map.has(item.categoryId)) map.set(item.categoryId, []);
       map.get(item.categoryId)!.push(item);
@@ -576,7 +723,7 @@ export default function PatternsPage() {
         {/* ── Unmet Wants ── */}
         {hasMyMap && (
           <div className="mx-5">
-            <div className="mb-3">
+            <div className="mb-4">
               <div className="flex items-center gap-2 mb-1">
                 <span className="w-2 h-2 rounded-full" style={{ background: '#D47020' }} />
                 <h2 className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.4)' }}>Unmet Wants</h2>
@@ -584,10 +731,10 @@ export default function PatternsPage() {
               <p className="text-xs" style={{ color: 'rgba(0,0,0,0.35)' }}>
                 {unmetWants.length === 0
                   ? 'All your wants are covered across your connections'
-                  : `${unmetWants.length} thing${unmetWants.length !== 1 ? 's' : ''} you want that no connection covers`}
+                  : `${unmetWants.length} thing${unmetWants.length !== 1 ? 's' : ''} you want that no connection covers — tap a bar to see which`}
               </p>
             </div>
-            <GapBars unmetByCategory={unmetByCategory} coveredByCategory={coveredByCategory} />
+            <UnmetBarChart unmetByCategory={unmetByCategory} coveredByCategory={coveredByCategory} />
           </div>
         )}
 
@@ -599,9 +746,9 @@ export default function PatternsPage() {
                 <span className="w-2 h-2 rounded-full" style={{ background: '#007A6B' }} />
                 <h2 className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.4)' }}>Coverage Map</h2>
               </div>
-              <p className="text-xs" style={{ color: 'rgba(0,0,0,0.35)' }}>Who covers what across your connections</p>
+              <p className="text-xs" style={{ color: 'rgba(0,0,0,0.35)' }}>Swipe through categories — tap covered items to see who</p>
             </div>
-            <CoverageRings
+            <CoverageCarousel
               coveredByCategory={coveredByCategory}
               unmetByCategory={unmetByCategory}
               connectionCoverage={connectionCoverage}
