@@ -87,15 +87,21 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
     'bottom-right': 'polygon(100% 0, 0 100%, 100% 100%)',
   };
 
-  const triangleStyle: Record<string, React.CSSProperties> = {
-    'top-left':     { top: 0, left: 0, width: '38%', height: '38%' },
-    'top-right':    { top: 0, right: 0, width: '38%', height: '38%' },
-    'bottom-left':  { bottom: 0, left: 0, width: '38%', height: '38%' },
-    'bottom-right': { bottom: 0, right: 0, width: '38%', height: '38%' },
+  // Radial gradient origin matches the corner so color is richest at the tip and fades inward
+  const gradientOrigin: Record<string, string> = {
+    'top-left': '0% 0%',
+    'top-right': '100% 0%',
+    'bottom-left': '0% 100%',
+    'bottom-right': '100% 100%',
   };
 
-  // Flat (no rotation) text anchored inside each corner
-  // Bottom labels pushed up 28px to clear the nav bar area
+  const triangleStyle: Record<string, React.CSSProperties> = {
+    'top-left':     { top: 0, left: 0, width: '44%', height: '44%' },
+    'top-right':    { top: 0, right: 0, width: '44%', height: '44%' },
+    'bottom-left':  { bottom: 0, left: 0, width: '44%', height: '44%' },
+    'bottom-right': { bottom: 0, right: 0, width: '44%', height: '44%' },
+  };
+
   const labelPos: Record<string, React.CSSProperties> = {
     'top-left':     { top: 14, left: 14, textAlign: 'left' },
     'top-right':    { top: 14, right: 14, textAlign: 'right' },
@@ -110,7 +116,6 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
     'bottom-right': 'bottom right',
   };
 
-  // Each label broken into lines so it stacks neatly in the corner
   const labelLines: Record<string, string[]> = {
     'Actively Want': ['Actively', 'Want'],
     'Open To': ['Open', 'To'],
@@ -119,24 +124,25 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
   };
   const lines = labelLines[tier.label] || [tier.label];
 
-  const scale = active ? 1.1 : showHints ? 1.03 : 1;
-  const opacity = active ? 1 : showHints ? 0.92 : 0.85;
+  const scale = active ? 1.08 : showHints ? 1.03 : 1;
+  // Active = full opacity, hints = softer, rest = very subtle
+  const fillOpacity = active ? 0.82 : showHints ? 0.55 : 0.35;
 
   return (
     <>
-      {/* Triangle */}
+      {/* Soft gradient triangle — fades from corner color to transparent */}
       <div
         className="absolute z-20 pointer-events-none"
         style={{
           ...triangleStyle[corner],
           clipPath: clipPaths[corner],
-          background: tier.color,
-          opacity,
-          transition: 'all 0.3s ease-out',
+          background: `radial-gradient(circle at ${gradientOrigin[corner]}, ${tier.color} 0%, ${tier.color}88 35%, transparent 72%)`,
+          opacity: fillOpacity,
+          transition: 'opacity 0.25s ease-out',
         }}
       />
 
-      {/* Label — flat stacked text inside triangle corner */}
+      {/* Label */}
       <div className="absolute inset-0 z-30 pointer-events-none">
         <div
           className="absolute"
@@ -144,28 +150,26 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
             ...labelPos[corner],
             transform: `scale(${scale})`,
             transformOrigin: origin[corner],
-            transition: 'all 0.3s ease-out',
+            transition: 'all 0.25s ease-out',
           }}
         >
           {lines.map((line, i) => {
             const isOrLine = i === lines.length - 1 && tier.label === 'Not Available For';
-            const isBottom = corner === 'bottom-left' || corner === 'bottom-right';
-            const textColor = isBottom ? 'rgba(0,0,0,0.75)' : 'white';
-            const shadow = isBottom
-              ? '0 1px 4px rgba(255,255,255,0.4)'
-              : '0 1px 6px rgba(0,0,0,0.4)';
+            // All corners use the tier color for text — no more solid fills to read against
+            const textOpacity = active ? 1 : showHints ? 0.8 : 0.55;
             return (
               <div
                 key={i}
                 style={{
-                  color: textColor,
+                  color: tier.color,
                   fontWeight: isOrLine ? 500 : 800,
                   fontSize: isOrLine ? (active ? 11 : 9) : (active ? 14 : 12),
                   lineHeight: 1.25,
                   letterSpacing: '0.06em',
                   textTransform: 'uppercase',
-                  textShadow: shadow,
-                  opacity: isOrLine ? 0.7 : 1,
+                  filter: 'brightness(0.75)',
+                  opacity: isOrLine ? textOpacity * 0.7 : textOpacity,
+                  transition: 'opacity 0.25s ease-out',
                 }}
               >
                 {line}

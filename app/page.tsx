@@ -29,6 +29,7 @@ export default function Home() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [newResponses, setNewResponses] = useState<Map<string, string>>(new Map());
   const [myMapResponses, setMyMapResponses] = useState<{ id: string; responder_name: string; created_at: string; isNew: boolean }[]>([]);
+  const [mapAccordionOpen, setMapAccordionOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const { user } = useAuth();
 
@@ -67,6 +68,7 @@ export default function Home() {
       }
       all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setMyMapResponses(all);
+      if (all.some(r => !seen.has(r.id))) setMapAccordionOpen(true);
     });
   }, [user]);
 
@@ -146,29 +148,6 @@ export default function Home() {
         </Link>
       </div>
 
-      {/* My Map responses banner — only when there are unseen ones */}
-      {myMapResponses.some(r => r.isNew) && (
-        <div className="px-5 mb-4">
-          <div
-            className="rounded-2xl p-4 flex items-center gap-3"
-            style={{
-              background: 'linear-gradient(135deg, #80C9C1, #C5A3CF)',
-              boxShadow: '0 4px 18px rgba(128,201,193,0.4)',
-              border: '2px solid rgba(255,255,255,0.4)',
-            }}
-          >
-            <span className="text-2xl">🗺️</span>
-            <div className="flex-1">
-              <p className="text-sm font-semibold" style={{ color: 'rgba(0,0,0,0.75)' }}>
-                {myMapResponses.filter(r => r.isNew).length} new My Map {myMapResponses.filter(r => r.isNew).length === 1 ? 'response' : 'responses'}
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.45)' }}>
-                Scroll down to view
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Connections list — includes My Map responses as cards */}
       <div className="px-5">
@@ -179,55 +158,70 @@ export default function Home() {
           </div>
         ) : (
           <div className="space-y-3 mb-6">
-            {/* My Map responses — shown as cards in the list */}
-            {myMapResponses.map((resp) => {
-              const gradient = 'linear-gradient(135deg, #80C9C1, #C5A3CF)';
-              return (
-                <Link
-                  key={resp.id}
-                  href={`/map-compare/${resp.id}`}
-                  onClick={() => markSeen(SEEN_MAP_KEY, resp.id)}
-                  className="block watercolor-card bg-white/60 hover:bg-white/80 transition-all p-5"
-                  style={{ boxShadow: '0 4px 18px rgba(0,148,131,0.25), inset 0 -2px 6px rgba(0,148,131,0.1)' }}
+            {/* Map Responses accordion */}
+            {myMapResponses.length > 0 && (
+              <div
+                className="watercolor-card bg-white/60 overflow-hidden"
+                style={{ boxShadow: '0 4px 18px rgba(128,201,193,0.3), inset 0 -2px 6px rgba(128,201,193,0.1)' }}
+              >
+                <button
+                  className="w-full px-5 py-4 flex items-center gap-3 text-left"
+                  onClick={() => setMapAccordionOpen(o => !o)}
                 >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-                      style={{
-                        background: gradient,
-                        boxShadow: '0 2px 8px rgba(0,148,131,0.3)',
-                        border: '2px solid rgba(255,255,255,0.5)',
-                      }}
-                    >
-                      {resp.responder_name[0]?.toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-semibold truncate">{resp.responder_name}</h3>
-                        <span
-                          className="text-[9px] px-2 py-0.5 rounded-full text-white font-medium shrink-0"
-                          style={{ background: '#009483' }}
-                        >
-                          My Map
-                        </span>
-                        {resp.isNew && (
-                          <span
-                            className="text-[9px] px-2 py-0.5 rounded-full text-white font-medium shrink-0 animate-pulse"
-                            style={{ background: '#C5A3CF' }}
-                          >
-                            New
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs opacity-40 mt-0.5">
-                        Responded · {new Date(resp.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <span className="text-xs opacity-30">View →</span>
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                    style={{ background: 'linear-gradient(135deg, #80C9C1, #C5A3CF)', border: '2px solid rgba(255,255,255,0.5)' }}
+                  >
+                    <span className="text-sm">🗺️</span>
                   </div>
-                </Link>
-              );
-            })}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-semibold">Map Responses</h3>
+                      {myMapResponses.filter(r => r.isNew).length > 0 && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full text-white font-medium animate-pulse shrink-0" style={{ background: '#009483' }}>
+                          {myMapResponses.filter(r => r.isNew).length} new
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>
+                      {myMapResponses.length} {myMapResponses.length === 1 ? 'person' : 'people'} responded
+                    </p>
+                  </div>
+                  <span className="text-xs opacity-30 transition-transform duration-200" style={{ transform: mapAccordionOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>›</span>
+                </button>
+                {mapAccordionOpen && (
+                  <div className="border-t border-black/5">
+                    {myMapResponses.map((resp) => (
+                      <Link
+                        key={resp.id}
+                        href={`/map-compare/${resp.id}`}
+                        onClick={() => markSeen(SEEN_MAP_KEY, resp.id)}
+                        className="flex items-center gap-3 px-5 py-3.5 hover:bg-black/5 transition-colors border-b border-black/5 last:border-b-0"
+                      >
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
+                          style={{ background: 'linear-gradient(135deg, #80C9C1, #C5A3CF)', border: '1.5px solid rgba(255,255,255,0.5)' }}
+                        >
+                          {resp.responder_name[0]?.toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold truncate">{resp.responder_name}</span>
+                            {resp.isNew && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full text-white font-medium shrink-0 animate-pulse" style={{ background: '#C5A3CF' }}>
+                                New
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs opacity-35">{new Date(resp.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}</p>
+                        </div>
+                        <span className="text-xs opacity-30">→</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Regular connections */}
             {connections.map((conn) => (
