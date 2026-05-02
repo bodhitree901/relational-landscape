@@ -398,9 +398,9 @@ export default function ChipPool({
                   <div
                     className="rounded-2xl px-5 py-4 flex flex-wrap gap-2 justify-center"
                     style={{
-                      background: `linear-gradient(135deg, ${categoryColor}15, ${categoryColor}08)`,
-                      border: `1.5px solid ${categoryColor}20`,
-                      boxShadow: `0 2px 12px ${categoryColor}10`,
+                      background: 'rgba(255,255,255,0.92)',
+                      border: `1.5px solid ${categoryColor}30`,
+                      boxShadow: `0 4px 20px rgba(0,0,0,0.08), 0 2px 8px ${categoryColor}15`,
                     }}
                   >
                     {topCluster.map((item) => (
