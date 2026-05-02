@@ -413,7 +413,7 @@ function RedZonePentagon({ redZone, myInitial, theirInitial, isSingle }: { redZo
 
 // ── Category Heatmap Popup ────────────────────────────────────────────────────
 
-function CategoryHeatmapPopup({ cat, myInitial, theirInitial, onClose }: { cat: CatScore; myInitial: string; theirInitial: string; onClose: () => void }) {
+function CategoryHeatmapPopup({ cat, myInitial, theirInitial, isSingle, onClose }: { cat: CatScore; myInitial: string; theirInitial: string; isSingle?: boolean; onClose: () => void }) {
   const [peekItem, setPeekItem] = useState<string | null>(null);
   const [r, g, b] = hexToRgb(cat.color);
   return (
@@ -425,7 +425,7 @@ function CategoryHeatmapPopup({ cat, myInitial, theirInitial, onClose }: { cat: 
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-extrabold uppercase tracking-wide" style={{ color: 'rgba(0,0,0,0.75)' }}>{cat.name}</h3>
-              <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>{cat.alignedCount} of {cat.totalCount} aligned · {Math.round(cat.ratio * 100)}%</p>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>{cat.alignedCount} of {cat.totalCount} {isSingle ? 'open' : 'aligned'} · {Math.round(cat.ratio * 100)}%</p>
             </div>
             <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background: `rgba(${r},${g},${b},0.15)`, color: 'rgba(0,0,0,0.4)' }}>✕</button>
           </div>
@@ -450,7 +450,7 @@ function CategoryHeatmapPopup({ cat, myInitial, theirInitial, onClose }: { cat: 
                     {TIER_ORDER.map(tier => (
                       <div key={tier} className="w-11 flex items-center justify-center gap-0.5">
                         {dim.myTier === tier && <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: TIER_COLORS[tier] }}>{myInitial}</span>}
-                        {dim.theirTier === tier && <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border-2" style={{ borderColor: TIER_COLORS[tier], color: TIER_COLORS[tier], background: TIER_BG[tier] }}>{theirInitial}</span>}
+                        {!isSingle && dim.theirTier === tier && <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border-2" style={{ borderColor: TIER_COLORS[tier], color: TIER_COLORS[tier], background: TIER_BG[tier] }}>{theirInitial}</span>}
                       </div>
                     ))}
                   </div>
@@ -1145,6 +1145,9 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
     }
   }
 
+  const [commitmentsOpen, setCommitmentsOpen] = useState(false);
+  const [divergesOpen, setDivergesOpen] = useState(false);
+
   const isSingle = mode !== 'shared';
   const sentence = mode === 'shared'
     ? generateSentence(greenZone, tension, catScores, myName, theirName)
@@ -1205,28 +1208,31 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
         />
       )}
 
-      {/* ── Strong Commitments (single only) ── */}
-      {mode === 'single' && mustHaves.length > 0 && (
-        <div className="mx-5">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="w-2 h-2 rounded-full" style={{ background: '#009483' }} />
-            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.3)' }}>
-              Strong Commitments
-            </p>
-            <span className="text-[10px]" style={{ color: 'rgba(0,0,0,0.2)' }}>{mustHaves.length} must-haves</span>
-          </div>
-          <div className="rounded-3xl px-5 py-4" style={{ background: 'rgba(0,148,131,0.04)', border: '1.5px solid rgba(0,148,131,0.14)' }}>
-            <div className="flex flex-wrap gap-2">
-              {mustHaves.map((d) => {
-                const [r, g, b] = hexToRgb(d.categoryColor);
-                return (
-                  <span key={d.subcategory} className="text-xs px-3 py-1.5 rounded-full font-medium" style={{ background: `rgba(${r},${g},${b},0.12)`, color: `rgba(${r},${g},${b},1)`, border: `1px solid rgba(${r},${g},${b},0.25)` }}>
-                    {d.subcategory}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
+      {/* ── Strong Commitments + Diverges — side-by-side half-cards (single only) ── */}
+      {mode === 'single' && (mustHaves.length > 0 || divergences.length > 0) && (
+        <div className="mx-5 flex gap-3">
+          {mustHaves.length > 0 && (
+            <button
+              onClick={() => setCommitmentsOpen(true)}
+              className="flex-1 rounded-2xl px-4 py-4 text-left transition-all active:scale-[0.98]"
+              style={{ background: 'rgba(0,148,131,0.05)', border: '1.5px solid rgba(0,148,131,0.18)' }}
+            >
+              <span className="text-xl block mb-2" style={{ color: '#009483' }}>✦</span>
+              <p className="text-xs font-bold uppercase tracking-wide leading-tight mb-1" style={{ color: '#009483' }}>Strong<br />Commitments</p>
+              <p className="text-[10px]" style={{ color: 'rgba(0,0,0,0.35)' }}>{mustHaves.length} must-haves</p>
+            </button>
+          )}
+          {divergences.length > 0 && (
+            <button
+              onClick={() => setDivergesOpen(true)}
+              className="flex-1 rounded-2xl px-4 py-4 text-left transition-all active:scale-[0.98]"
+              style={{ background: 'rgba(123,104,176,0.05)', border: '1.5px solid rgba(123,104,176,0.18)' }}
+            >
+              <span className="text-xl block mb-2" style={{ color: '#7B68B0' }}>↗</span>
+              <p className="text-xs font-bold uppercase tracking-wide leading-tight mb-1" style={{ color: '#7B68B0' }}>Diverges from<br />Defaults</p>
+              <p className="text-[10px]" style={{ color: 'rgba(0,0,0,0.35)' }}>{divergences.length} divergence{divergences.length !== 1 ? 's' : ''}</p>
+            </button>
+          )}
         </div>
       )}
 
@@ -1248,22 +1254,66 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
         </div>
       )}
 
-      {/* ── Diverges from your defaults (single only) ── */}
-      {mode === 'single' && divergences.length > 0 && (
-        <div className="mx-5">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="w-2 h-2 rounded-full" style={{ background: '#7B68B0' }} />
-            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(0,0,0,0.3)' }}>Diverges from your defaults</p>
+    </div>
+
+    {activeCatId && (() => {
+      const cat = catScores.find(c => c.id === activeCatId);
+      return cat ? <CategoryHeatmapPopup cat={cat} myInitial={myInitial} theirInitial={theirInitial} isSingle={isSingle} onClose={() => setActiveCatId(null)} /> : null;
+    })()}
+
+    {/* Commitments sheet */}
+    {commitmentsOpen && mustHaves.length > 0 && (
+      <>
+        <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={() => setCommitmentsOpen(false)} />
+        <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl overflow-hidden" style={{ background: 'var(--background)', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '75vh', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.28s cubic-bezier(0.34,1.2,0.64,1)' }}>
+          <div className="px-6 pt-4 pb-4 shrink-0" style={{ background: 'linear-gradient(135deg, rgba(0,148,131,0.18), rgba(0,148,131,0.08))' }}>
+            <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: 'rgba(0,148,131,0.4)' }} />
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold" style={{ color: 'rgba(0,0,0,0.75)' }}>Strong Commitments</h3>
+                <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>{mustHaves.length} must-haves with {myName}</p>
+              </div>
+              <button onClick={() => setCommitmentsOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background: 'rgba(0,148,131,0.12)', color: 'rgba(0,0,0,0.4)' }}>✕</button>
+            </div>
           </div>
-          <div className="rounded-3xl px-5 py-4 space-y-3" style={{ background: 'rgba(123,104,176,0.04)', border: '1.5px solid rgba(123,104,176,0.14)' }}>
+          <div className="overflow-y-auto px-5 pb-8 pt-4">
+            <div className="flex flex-wrap gap-2">
+              {mustHaves.map((d) => {
+                const [r, g, b] = hexToRgb(d.categoryColor);
+                return (
+                  <span key={d.subcategory} className="text-xs px-3 py-1.5 rounded-full font-medium" style={{ background: `rgba(${r},${g},${b},0.12)`, color: `rgba(${r},${g},${b},1)`, border: `1px solid rgba(${r},${g},${b},0.25)` }}>
+                    {d.subcategory}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
+      </>
+    )}
+
+    {/* Diverges sheet */}
+    {divergesOpen && divergences.length > 0 && (
+      <>
+        <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={() => setDivergesOpen(false)} />
+        <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl overflow-hidden" style={{ background: 'var(--background)', boxShadow: '0 -8px 40px rgba(0,0,0,0.12)', maxHeight: '78vh', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.28s cubic-bezier(0.34,1.2,0.64,1)' }}>
+          <div className="px-6 pt-4 pb-4 shrink-0" style={{ background: 'linear-gradient(135deg, rgba(123,104,176,0.18), rgba(123,104,176,0.08))' }}>
+            <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: 'rgba(123,104,176,0.4)' }} />
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold" style={{ color: 'rgba(0,0,0,0.75)' }}>Diverges from Defaults</h3>
+                <p className="text-xs mt-0.5" style={{ color: 'rgba(0,0,0,0.35)' }}>Where {myName} crosses your usual lines</p>
+              </div>
+              <button onClick={() => setDivergesOpen(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-sm" style={{ background: 'rgba(123,104,176,0.12)', color: 'rgba(0,0,0,0.4)' }}>✕</button>
+            </div>
+          </div>
+          <div className="overflow-y-auto px-5 pb-8 pt-4 space-y-3">
             {divergences.map((d, i) => {
               const [r, g, b] = hexToRgb(d.connColor);
               return (
                 <div key={i} className="flex items-start gap-3">
-                  <div
-                    className="mt-0.5 shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-white font-bold text-[9px]"
-                    style={{ background: d.connColor, boxShadow: `0 1px 6px rgba(${r},${g},${b},0.35)` }}
-                  >
+                  <div className="mt-0.5 shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-white font-bold text-[9px]" style={{ background: d.connColor, boxShadow: `0 1px 6px rgba(${r},${g},${b},0.35)` }}>
                     {d.connectionName[0]?.toUpperCase()}
                   </div>
                   <p className="text-sm leading-snug" style={{ color: 'rgba(0,0,0,0.65)', fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
@@ -1272,21 +1322,11 @@ export default function ComparisonSummaryProto({ myConnection, theirConnection, 
                 </div>
               );
             })}
-            {myMapDefaults.size === 0 && (
-              <p className="text-xs text-center py-2" style={{ color: 'rgba(0,0,0,0.3)' }}>
-                Complete your My Map to see how these connections diverge from your defaults
-              </p>
-            )}
           </div>
         </div>
-      )}
-
-    </div>
-
-    {activeCatId && (() => {
-      const cat = catScores.find(c => c.id === activeCatId);
-      return cat ? <CategoryHeatmapPopup cat={cat} myInitial={myInitial} theirInitial={theirInitial} onClose={() => setActiveCatId(null)} /> : null;
-    })()}
+        <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
+      </>
+    )}
     </>
   );
 }

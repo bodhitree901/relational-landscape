@@ -347,6 +347,7 @@ export default function MyMenuPage() {
 
         {/* Summary view */}
         {(() => {
+          const validItems = new Set(MENU_CATEGORIES.flatMap(c => c.items));
           const menuConn: Connection = {
             id: 'my-map',
             name: myName || 'My Map',
@@ -356,8 +357,10 @@ export default function MyMenuPage() {
             updatedAt: new Date().toISOString(),
             categories: menuProfiles.map(p => ({
               categoryId: p.categoryId,
-              ratings: p.ratings.map(r => ({ subcategory: r.item, tier: r.tier as Tier })),
-            })),
+              ratings: p.ratings
+                .filter(r => validItems.has(r.item))
+                .map(r => ({ subcategory: r.item, tier: r.tier as Tier })),
+            })).filter(p => p.ratings.length > 0),
             timeRhythm: { communication: [], inPerson: [], custom: [] },
           };
           return <ComparisonSummaryProto myConnection={menuConn} myName={myName || 'My Map'} mode="defaults" />;
