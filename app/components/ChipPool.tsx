@@ -80,14 +80,14 @@ const SIDE_TO_CORNER: Record<string, string> = {
 };
 
 function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: TierConfig; active: boolean; corner: string; isDragging: boolean }) {
-  const clipPaths: Record<string, string> = {
-    'top-left': 'polygon(0 0, 100% 0, 0 100%)',
-    'top-right': 'polygon(0 0, 100% 0, 100% 100%)',
-    'bottom-left': 'polygon(0 0, 0 100%, 100% 100%)',
-    'bottom-right': 'polygon(100% 0, 0 100%, 100% 100%)',
+  // Each quadrant fills its half of the screen; gradient bleeds from the corner inward
+  const quadrantStyle: Record<string, React.CSSProperties> = {
+    'top-left':     { top: 0, left: 0, width: '50%', height: '50%' },
+    'top-right':    { top: 0, right: 0, width: '50%', height: '50%' },
+    'bottom-left':  { bottom: 0, left: 0, width: '50%', height: '50%' },
+    'bottom-right': { bottom: 0, right: 0, width: '50%', height: '50%' },
   };
 
-  // Radial gradient origin matches the corner so color is richest at the tip and fades inward
   const gradientOrigin: Record<string, string> = {
     'top-left': '0% 0%',
     'top-right': '100% 0%',
@@ -95,18 +95,11 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
     'bottom-right': '100% 100%',
   };
 
-  const triangleStyle: Record<string, React.CSSProperties> = {
-    'top-left':     { top: 0, left: 0, width: '44%', height: '44%' },
-    'top-right':    { top: 0, right: 0, width: '44%', height: '44%' },
-    'bottom-left':  { bottom: 0, left: 0, width: '44%', height: '44%' },
-    'bottom-right': { bottom: 0, right: 0, width: '44%', height: '44%' },
-  };
-
   const labelPos: Record<string, React.CSSProperties> = {
-    'top-left':     { top: 14, left: 14, textAlign: 'left' },
-    'top-right':    { top: 14, right: 14, textAlign: 'right' },
-    'bottom-left':  { bottom: 28, left: 14, textAlign: 'left' },
-    'bottom-right': { bottom: 28, right: 14, textAlign: 'right' },
+    'top-left':     { top: 18, left: 18, textAlign: 'left' },
+    'top-right':    { top: 18, right: 18, textAlign: 'right' },
+    'bottom-left':  { bottom: 32, left: 18, textAlign: 'left' },
+    'bottom-right': { bottom: 32, right: 18, textAlign: 'right' },
   };
 
   const origin: Record<string, string> = {
@@ -124,25 +117,23 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
   };
   const lines = labelLines[tier.label] || [tier.label];
 
-  const scale = active ? 1.08 : showHints ? 1.03 : 1;
-  // Active = full opacity, hints = softer, rest = very subtle
-  const fillOpacity = active ? 0.82 : showHints ? 0.55 : 0.35;
+  const scale = active ? 1.08 : showHints ? 1.02 : 1;
+  const fillOpacity = active ? 0.75 : showHints ? 0.5 : 0.28;
 
   return (
     <>
-      {/* Soft gradient triangle — fades from corner color to transparent */}
+      {/* Quadrant background — soft radial gradient from corner, no hard edges */}
       <div
-        className="absolute z-20 pointer-events-none"
+        className="absolute z-10 pointer-events-none"
         style={{
-          ...triangleStyle[corner],
-          clipPath: clipPaths[corner],
-          background: `radial-gradient(circle at ${gradientOrigin[corner]}, ${tier.color} 0%, ${tier.color}88 35%, transparent 72%)`,
+          ...quadrantStyle[corner],
+          background: `radial-gradient(ellipse at ${gradientOrigin[corner]}, ${tier.color}CC 0%, ${tier.color}55 40%, transparent 75%)`,
           opacity: fillOpacity,
           transition: 'opacity 0.25s ease-out',
         }}
       />
 
-      {/* Label */}
+      {/* Label anchored in each corner */}
       <div className="absolute inset-0 z-30 pointer-events-none">
         <div
           className="absolute"
@@ -155,8 +146,7 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
         >
           {lines.map((line, i) => {
             const isOrLine = i === lines.length - 1 && tier.label === 'Not Available For';
-            // All corners use the tier color for text — no more solid fills to read against
-            const textOpacity = active ? 1 : showHints ? 0.8 : 0.55;
+            const textOpacity = active ? 1 : showHints ? 0.75 : 0.5;
             return (
               <div
                 key={i}
@@ -167,7 +157,7 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
                   lineHeight: 1.25,
                   letterSpacing: '0.06em',
                   textTransform: 'uppercase',
-                  filter: 'brightness(0.75)',
+                  filter: 'brightness(0.7)',
                   opacity: isOrLine ? textOpacity * 0.7 : textOpacity,
                   transition: 'opacity 0.25s ease-out',
                 }}
