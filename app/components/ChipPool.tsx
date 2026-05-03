@@ -289,6 +289,7 @@ export default function ChipPool({
 
   const ratedCount = ratings.size;
   const unratedItems = items.filter((item) => !ratings.has(item));
+  const tierColorMap = Object.fromEntries(tiers.map(t => [t.id, t.color]));
 
   return (
     <div
@@ -389,25 +390,28 @@ export default function ChipPool({
                   }}
                 />
               )}
-              {/* Top card — draggable */}
-              <div
-                className="relative rounded-3xl bg-white overflow-hidden touch-none"
-                style={{
-                  boxShadow: draggingItem
-                    ? '0 20px 60px rgba(0,0,0,0.22)'
-                    : '0 6px 24px rgba(0,0,0,0.12)',
-                  transform: draggingItem
-                    ? `translate(${dragOffset.x}px, ${dragOffset.y}px) rotate(${dragOffset.x * 0.05}deg)`
-                    : 'none',
-                  transition: draggingItem ? 'box-shadow 0.15s' : 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s',
-                  cursor: draggingItem ? 'grabbing' : 'grab',
-                  WebkitUserSelect: 'none',
-                  zIndex: 20,
-                }}
-                onPointerDown={(e) => handlePointerDown(unratedItems[0], e)}
-              >
-                {/* Photo */}
-                <div className="relative w-full" style={{ height: 210 }}>
+
+              {/* Card — photo drags, text stays */}
+              <div style={{ position: 'relative', zIndex: 10, borderRadius: 24, boxShadow: '0 6px 24px rgba(0,0,0,0.12)' }}>
+                {/* Photo — only this part drags */}
+                <div
+                  className="touch-none"
+                  style={{
+                    height: 210,
+                    borderRadius: '24px 24px 0 0',
+                    overflow: 'hidden',
+                    position: 'relative',
+                    transform: draggingItem
+                      ? `translate(${dragOffset.x}px, ${dragOffset.y}px) rotate(${dragOffset.x * 0.05}deg)`
+                      : 'none',
+                    transition: draggingItem ? 'none' : 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+                    cursor: draggingItem ? 'grabbing' : 'grab',
+                    zIndex: draggingItem ? 30 : 20,
+                    boxShadow: draggingItem ? '0 20px 50px rgba(0,0,0,0.22)' : 'none',
+                    WebkitUserSelect: 'none',
+                  }}
+                  onPointerDown={(e) => handlePointerDown(unratedItems[0], e)}
+                >
                   <img
                     src={`https://picsum.photos/seed/${encodeURIComponent(unratedItems[0])}/700/420`}
                     alt={unratedItems[0]}
@@ -415,23 +419,27 @@ export default function ChipPool({
                     className="w-full h-full object-cover"
                     style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                   />
-                  {/* Subtle gradient so text below reads cleanly */}
-                  <div
-                    className="absolute bottom-0 left-0 right-0 h-12 pointer-events-none"
-                    style={{ background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.08))' }}
-                  />
                 </div>
 
-                {/* Text area */}
-                <div className="px-5 pt-4 pb-5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: categoryColor, filter: 'brightness(0.75)' }}>
+                {/* Text section — stays fixed, tints to zone color */}
+                <div
+                  style={{
+                    borderRadius: '0 0 24px 24px',
+                    background: activeZone && tierColorMap[activeZone]
+                      ? tierColorMap[activeZone] + '50'
+                      : 'white',
+                    transition: 'background 0.2s ease',
+                    padding: '16px 20px 22px',
+                  }}
+                >
+                  <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: categoryColor, filter: 'brightness(0.75)', marginBottom: 6 }}>
                     {categoryName}
                   </p>
-                  <h2 className="text-xl font-bold mb-2" style={{ color: 'rgba(0,0,0,0.84)', lineHeight: 1.2 }}>
+                  <h2 style={{ fontSize: 20, fontWeight: 700, color: 'rgba(0,0,0,0.84)', lineHeight: 1.2, marginBottom: 8 }}>
                     {unratedItems[0]}
                   </h2>
                   {SUBCATEGORY_DEFINITIONS[unratedItems[0]] && (
-                    <p className="text-sm leading-relaxed" style={{ color: 'rgba(0,0,0,0.42)', fontStyle: 'italic' }}>
+                    <p style={{ fontSize: 13, lineHeight: 1.55, color: 'rgba(0,0,0,0.45)', fontStyle: 'italic' }}>
                       {SUBCATEGORY_DEFINITIONS[unratedItems[0]]}
                     </p>
                   )}
