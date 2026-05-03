@@ -82,12 +82,6 @@ const SIDE_TO_CORNER: Record<string, string> = {
   left: 'bottom-left',
 };
 
-const CORNER_EXIT: Record<string, string> = {
-  'top-right':    'translate(110%, -110%) scale(0.01)',
-  'top-left':     'translate(-110%, -110%) scale(0.01)',
-  'bottom-left':  'translate(-110%, 110%) scale(0.01)',
-  'bottom-right': 'translate(110%, 110%) scale(0.01)',
-};
 
 const GAP = 5; // px gap between quadrants and screen edges
 
@@ -181,29 +175,44 @@ function CornerCircle({ tier, active, corner, isDragging: showHints, popped }: {
   );
 }
 
-/* ---- Exiting card animation ---- */
-function ExitingCard({ item, exitTransform, categoryName, categoryColor }: {
-  item: string; exitTransform: string; categoryName: string; categoryColor: string;
+/* ---- Exiting card animation (Option E: pop-and-shrink) ---- */
+function ExitingCard({ item, zoneColor, categoryName, categoryColor }: {
+  item: string; zoneColor: string; categoryName: string; categoryColor: string;
 }) {
-  const [active, setActive] = useState(false);
+  const [phase, setPhase] = useState(0); // 0=idle, 1=expand, 2=collapse
   useEffect(() => {
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => setActive(true)));
-    return () => cancelAnimationFrame(id);
+    let t: ReturnType<typeof setTimeout>;
+    const r = requestAnimationFrame(() => {
+      setPhase(1);
+      t = setTimeout(() => setPhase(2), 90);
+    });
+    return () => { cancelAnimationFrame(r); clearTimeout(t); };
   }, []);
+
+  const transform = phase === 2 ? 'scale(0)' : phase === 1 ? 'scale(1.07)' : 'scale(1)';
+  const opacity = phase === 2 ? 0 : 1;
+  const transition = phase === 1
+    ? 'transform 0.08s ease-out'
+    : phase === 2
+    ? 'transform 0.14s cubic-bezier(0.55,0,1,1), opacity 0.12s ease-in'
+    : 'none';
+
   const { url, pos } = getItemPhoto(item);
   return (
     <div style={{
       position: 'absolute', inset: 0, zIndex: 25, borderRadius: 24, overflow: 'hidden',
-      transform: active ? exitTransform : 'none',
-      opacity: active ? 0 : 1,
-      transition: active ? 'transform 0.24s cubic-bezier(0.95,0,1,1), opacity 0.18s cubic-bezier(0.95,0,1,1)' : 'none',
+      transform, opacity, transition,
       pointerEvents: 'none',
     }}>
       <div style={{ height: 170 }}>
         <img src={url} alt={item} draggable={false}
           style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: pos }} />
       </div>
-      <div style={{ padding: '16px 20px 22px', background: 'white' }}>
+      <div style={{
+        padding: '16px 20px 22px',
+        background: phase === 1 ? zoneColor + '70' : 'white',
+        transition: 'background 0.08s ease-out',
+      }}>
         <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: categoryColor, filter: 'brightness(0.75)', marginBottom: 6 }}>
           {categoryName}
         </p>
@@ -236,10 +245,15 @@ export default function ChipPool({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [activeZone, setActiveZone] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<string[]>(() => initialRatings.map((r) => r.item));
+  const [failedPhotos, setFailedPhotos] = useState<Set<string>>(new Set());
+  const [exitingCard, setExitingCard] = useState<{ item: string; zoneColor: string } | null>(null);
+  const [poppedZone, setPoppedZone] = useState<string | null>(null);
   const startPos = useRef({ x: 0, y: 0 });
   const isDragging = useRef(false);
   const lastZone = useRef<string | null>(null);
   const pendingItem = useRef<string | null>(null);
+
+  const tierColorMap = Object.fromEntries(tiers.map(t => [t.id, t.color]));
 
   // Map corners to tier IDs
   const cornerToTier = useRef(
@@ -303,10 +317,9 @@ export default function ChipPool({
         next.set(item, activeZone);
         return next;
       });
-      // B: card flies to corner
-      const corner = SIDE_TO_CORNER[tiers.find(t => t.id === activeZone)?.side ?? 'right'];
-      setExitingCard({ item, exitTransform: CORNER_EXIT[corner] });
-      setTimeout(() => setExitingCard(null), 300);
+      // E: card pops and shrinks
+      setExitingCard({ item, zoneColor: tierColorMap[activeZone] ?? '#ccc' });
+      setTimeout(() => setExitingCard(null), 260);
       // D: zone label pops
       setPoppedZone(activeZone);
       setTimeout(() => setPoppedZone(null), 650);
@@ -339,13 +352,8 @@ export default function ChipPool({
     });
   };
 
-  const [failedPhotos, setFailedPhotos] = useState<Set<string>>(new Set());
-  const [exitingCard, setExitingCard] = useState<{ item: string; exitTransform: string } | null>(null);
-  const [poppedZone, setPoppedZone] = useState<string | null>(null);
-
   const ratedCount = ratings.size;
   const unratedItems = items.filter((item) => !ratings.has(item));
-  const tierColorMap = Object.fromEntries(tiers.map(t => [t.id, t.color]));
 
   return (
     <div
@@ -430,7 +438,7 @@ export default function ChipPool({
               {exitingCard && (
                 <ExitingCard
                   item={exitingCard.item}
-                  exitTransform={exitingCard.exitTransform}
+                  zoneColor={exitingCard.zoneColor}
                   categoryName={categoryName}
                   categoryColor={categoryColor}
                 />
