@@ -10,7 +10,7 @@ function triggerHaptic(style: 'light' | 'medium' | 'sort') {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       if (style === 'light') navigator.vibrate(30);
       else if (style === 'medium') navigator.vibrate([20, 40, 20]);
-      else navigator.vibrate([0, 0, 80]); // single strong punch on sort
+      else navigator.vibrate(80); // single strong punch on sort
     }
   } catch {}
 }
@@ -196,7 +196,7 @@ function ExitingCard({ item, exitTransform, categoryName, categoryColor }: {
       position: 'absolute', inset: 0, zIndex: 25, borderRadius: 24, overflow: 'hidden',
       transform: active ? exitTransform : 'none',
       opacity: active ? 0 : 1,
-      transition: active ? 'transform 0.28s cubic-bezier(0.7,0,1,1), opacity 0.22s cubic-bezier(0.7,0,1,1)' : 'none',
+      transition: active ? 'transform 0.24s cubic-bezier(0.95,0,1,1), opacity 0.18s cubic-bezier(0.95,0,1,1)' : 'none',
       pointerEvents: 'none',
     }}>
       <div style={{ height: 170 }}>
