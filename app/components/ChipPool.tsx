@@ -391,27 +391,26 @@ export default function ChipPool({
                 />
               )}
 
-              {/* Card — photo drags, text stays */}
-              <div style={{ position: 'relative', zIndex: 10, borderRadius: 24, boxShadow: '0 6px 24px rgba(0,0,0,0.12)' }}>
-                {/* Photo — only this part drags */}
-                <div
-                  className="touch-none"
-                  style={{
-                    height: 210,
-                    borderRadius: '24px 24px 0 0',
-                    overflow: 'hidden',
-                    position: 'relative',
-                    transform: draggingItem
-                      ? `translate(${dragOffset.x}px, ${dragOffset.y}px) rotate(${dragOffset.x * 0.05}deg)`
-                      : 'none',
-                    transition: draggingItem ? 'none' : 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
-                    cursor: draggingItem ? 'grabbing' : 'grab',
-                    zIndex: draggingItem ? 30 : 20,
-                    boxShadow: draggingItem ? '0 20px 50px rgba(0,0,0,0.22)' : 'none',
-                    WebkitUserSelect: 'none',
-                  }}
-                  onPointerDown={(e) => handlePointerDown(unratedItems[0], e)}
-                >
+              {/* Whole card drags together */}
+              <div
+                className="touch-none"
+                style={{
+                  position: 'relative',
+                  zIndex: 10,
+                  borderRadius: 24,
+                  overflow: 'hidden',
+                  boxShadow: draggingItem ? '0 20px 60px rgba(0,0,0,0.22)' : '0 6px 24px rgba(0,0,0,0.12)',
+                  transform: draggingItem
+                    ? `translate(${dragOffset.x}px, ${dragOffset.y}px) rotate(${dragOffset.x * 0.05}deg)`
+                    : 'none',
+                  transition: draggingItem ? 'box-shadow 0.15s' : 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s',
+                  cursor: draggingItem ? 'grabbing' : 'grab',
+                  WebkitUserSelect: 'none',
+                }}
+                onPointerDown={(e) => handlePointerDown(unratedItems[0], e)}
+              >
+                {/* Photo */}
+                <div style={{ height: 210, position: 'relative' }}>
                   <img
                     src={`https://picsum.photos/seed/${encodeURIComponent(unratedItems[0])}/700/420`}
                     alt={unratedItems[0]}
@@ -421,10 +420,9 @@ export default function ChipPool({
                   />
                 </div>
 
-                {/* Text section — stays fixed, tints to zone color */}
+                {/* Text section — tints to zone color */}
                 <div
                   style={{
-                    borderRadius: '0 0 24px 24px',
                     background: activeZone && tierColorMap[activeZone]
                       ? tierColorMap[activeZone] + '50'
                       : 'white',
