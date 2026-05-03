@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { SUBCATEGORY_DEFINITIONS } from '../lib/definitions';
-import { getItemPhotoUrl } from '../lib/item-photos';
+import { getItemPhoto } from '../lib/item-photos';
 
 /* ---- Haptic helper ---- */
 function triggerHaptic(style: 'light' | 'medium') {
@@ -288,6 +288,8 @@ export default function ChipPool({
     });
   };
 
+  const [failedPhotos, setFailedPhotos] = useState<Set<string>>(new Set());
+
   const ratedCount = ratings.size;
   const unratedItems = items.filter((item) => !ratings.has(item));
   const tierColorMap = Object.fromEntries(tiers.map(t => [t.id, t.color]));
@@ -390,13 +392,24 @@ export default function ChipPool({
               >
                 {/* Photo */}
                 <div style={{ height: 170, position: 'relative' }}>
-                  <img
-                    src={getItemPhotoUrl(unratedItems[0])}
-                    alt={unratedItems[0]}
-                    draggable={false}
-                    className="w-full h-full object-cover"
-                    style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
-                  />
+                  {(() => {
+                    const item = unratedItems[0];
+                    const failed = failedPhotos.has(item);
+                    const { url, pos } = failed
+                      ? { url: `https://picsum.photos/seed/${encodeURIComponent(item)}/700/420`, pos: 'center' }
+                      : getItemPhoto(item);
+                    return (
+                      <img
+                        key={failed ? 'fallback' : 'primary'}
+                        src={url}
+                        alt={item}
+                        draggable={false}
+                        className="w-full h-full object-cover"
+                        style={{ objectPosition: pos, WebkitUserDrag: 'none' } as React.CSSProperties}
+                        onError={() => setFailedPhotos(prev => new Set(prev).add(item))}
+                      />
+                    );
+                  })()}
                 </div>
 
                 {/* Text section — tints to zone color */}
