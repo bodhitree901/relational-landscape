@@ -367,29 +367,7 @@ export default function ChipPool({
               </button>
             </div>
           ) : (
-            <div className="relative" style={{ width: '92%', maxWidth: 380 }}>
-              {/* Ghost card 3 */}
-              {unratedItems[2] && (
-                <div
-                  className="absolute inset-0 rounded-3xl bg-white"
-                  style={{
-                    transform: 'translateY(14px) scale(0.91) rotate(-2deg)',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.07)',
-                    opacity: 0.7,
-                  }}
-                />
-              )}
-              {/* Ghost card 2 */}
-              {unratedItems[1] && (
-                <div
-                  className="absolute inset-0 rounded-3xl bg-white"
-                  style={{
-                    transform: 'translateY(7px) scale(0.96) rotate(1deg)',
-                    boxShadow: '0 2px 14px rgba(0,0,0,0.09)',
-                    opacity: 0.85,
-                  }}
-                />
-              )}
+            <div className="relative" style={{ width: '80%', maxWidth: 320 }}>
 
               {/* Whole card drags together */}
               <div
@@ -410,7 +388,7 @@ export default function ChipPool({
                 onPointerDown={(e) => handlePointerDown(unratedItems[0], e)}
               >
                 {/* Photo */}
-                <div style={{ height: 210, position: 'relative' }}>
+                <div style={{ height: 170, position: 'relative' }}>
                   <img
                     src={`https://picsum.photos/seed/${encodeURIComponent(unratedItems[0])}/700/420`}
                     alt={unratedItems[0]}
