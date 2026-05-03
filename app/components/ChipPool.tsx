@@ -5,10 +5,12 @@ import { SUBCATEGORY_DEFINITIONS } from '../lib/definitions';
 import { getItemPhoto } from '../lib/item-photos';
 
 /* ---- Haptic helper ---- */
-function triggerHaptic(style: 'light' | 'medium') {
+function triggerHaptic(style: 'light' | 'medium' | 'sort') {
   try {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate(style === 'light' ? 30 : [20, 40, 20]);
+      if (style === 'light') navigator.vibrate(30);
+      else if (style === 'medium') navigator.vibrate([20, 40, 20]);
+      else navigator.vibrate([0, 0, 80]); // single strong punch on sort
     }
   } catch {}
 }
@@ -81,10 +83,10 @@ const SIDE_TO_CORNER: Record<string, string> = {
 };
 
 const CORNER_EXIT: Record<string, string> = {
-  'top-right':    'translate(65%, -65%) scale(0.08) rotate(12deg)',
-  'top-left':     'translate(-65%, -65%) scale(0.08) rotate(-12deg)',
-  'bottom-left':  'translate(-65%, 65%) scale(0.08) rotate(-12deg)',
-  'bottom-right': 'translate(65%, 65%) scale(0.08) rotate(12deg)',
+  'top-right':    'translate(110%, -110%) scale(0.01)',
+  'top-left':     'translate(-110%, -110%) scale(0.01)',
+  'bottom-left':  'translate(-110%, 110%) scale(0.01)',
+  'bottom-right': 'translate(110%, 110%) scale(0.01)',
 };
 
 const GAP = 5; // px gap between quadrants and screen edges
@@ -194,7 +196,7 @@ function ExitingCard({ item, exitTransform, categoryName, categoryColor }: {
       position: 'absolute', inset: 0, zIndex: 25, borderRadius: 24, overflow: 'hidden',
       transform: active ? exitTransform : 'none',
       opacity: active ? 0 : 1,
-      transition: active ? 'transform 0.38s cubic-bezier(0.55,0,1,0.45), opacity 0.28s ease-out' : 'none',
+      transition: active ? 'transform 0.28s cubic-bezier(0.7,0,1,1), opacity 0.22s cubic-bezier(0.7,0,1,1)' : 'none',
       pointerEvents: 'none',
     }}>
       <div style={{ height: 170 }}>
@@ -294,7 +296,7 @@ export default function ChipPool({
     if (!item) return;
 
     if (isDragging.current && activeZone) {
-      triggerHaptic('medium');
+      triggerHaptic('sort');
       setUndoStack((prev) => [...prev, item]);
       setRatings((prev) => {
         const next = new Map(prev);
@@ -304,7 +306,7 @@ export default function ChipPool({
       // B: card flies to corner
       const corner = SIDE_TO_CORNER[tiers.find(t => t.id === activeZone)?.side ?? 'right'];
       setExitingCard({ item, exitTransform: CORNER_EXIT[corner] });
-      setTimeout(() => setExitingCard(null), 420);
+      setTimeout(() => setExitingCard(null), 300);
       // D: zone label pops
       setPoppedZone(activeZone);
       setTimeout(() => setPoppedZone(null), 650);
