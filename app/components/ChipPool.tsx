@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { SUBCATEGORY_DEFINITIONS } from '../lib/definitions';
-import { getItemPhoto } from '../lib/item-photos';
+import { getItemIcon } from '../lib/item-icons';
 
 /* ---- Haptic helper ---- */
 function triggerHaptic(style: 'light' | 'medium' | 'sort') {
@@ -197,26 +197,32 @@ function ExitingCard({ item, zoneColor, categoryName, categoryColor }: {
     ? 'transform 0.14s cubic-bezier(0.55,0,1,1), opacity 0.12s ease-in'
     : 'none';
 
-  const { url, pos } = getItemPhoto(item);
+  const IconComponent = getItemIcon(item);
+  const circleColor = phase === 1 ? zoneColor : categoryColor;
   return (
     <div style={{
       position: 'absolute', inset: 0, zIndex: 25, borderRadius: 24, overflow: 'hidden',
-      transform, opacity, transition,
+      background: 'white', transform, opacity, transition,
       pointerEvents: 'none',
     }}>
-      <div style={{ height: 170 }}>
-        <img src={url} alt={item} draggable={false}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: pos }} />
-      </div>
       <div style={{
-        padding: '16px 20px 22px',
-        background: phase === 1 ? zoneColor + '70' : 'white',
-        transition: 'background 0.08s ease-out',
+        height: 108, background: categoryColor + '22',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: categoryColor, filter: 'brightness(0.75)', marginBottom: 6 }}>
+        <div style={{
+          width: 68, height: 68, borderRadius: '50%',
+          background: circleColor,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 4px 18px ${categoryColor}50`,
+        }}>
+          <IconComponent size={32} color="white" weight="regular" />
+        </div>
+      </div>
+      <div style={{ padding: '14px 20px 20px', background: phase === 1 ? zoneColor + '50' : 'white' }}>
+        <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: categoryColor, filter: 'brightness(0.75)', marginBottom: 5 }}>
           {categoryName}
         </p>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: 'rgba(0,0,0,0.84)', lineHeight: 1.2 }}>
+        <h2 style={{ fontSize: 19, fontWeight: 700, color: 'rgba(0,0,0,0.84)', lineHeight: 1.2 }}>
           {item}
         </h2>
       </div>
@@ -245,7 +251,6 @@ export default function ChipPool({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [activeZone, setActiveZone] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<string[]>(() => initialRatings.map((r) => r.item));
-  const [failedPhotos, setFailedPhotos] = useState<Set<string>>(new Set());
   const [exitingCard, setExitingCard] = useState<{ item: string; zoneColor: string } | null>(null);
   const [poppedZone, setPoppedZone] = useState<string | null>(null);
   const startPos = useRef({ x: 0, y: 0 });
@@ -445,68 +450,79 @@ export default function ChipPool({
               )}
 
               {/* Whole card drags together */}
-              <div
-                className="touch-none"
-                style={{
-                  position: 'relative',
-                  zIndex: 10,
-                  borderRadius: 24,
-                  overflow: 'hidden',
-                  boxShadow: draggingItem ? '0 20px 60px rgba(0,0,0,0.22)' : '0 6px 24px rgba(0,0,0,0.12)',
-                  transform: draggingItem
-                    ? `translate(${dragOffset.x}px, ${dragOffset.y}px) rotate(${dragOffset.x * 0.05}deg)`
-                    : 'none',
-                  transition: draggingItem ? 'box-shadow 0.15s' : 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s',
-                  cursor: draggingItem ? 'grabbing' : 'grab',
-                  WebkitUserSelect: 'none',
-                }}
-                onPointerDown={(e) => handlePointerDown(unratedItems[0], e)}
-              >
-                {/* Photo */}
-                <div style={{ height: 170, position: 'relative' }}>
-                  {(() => {
-                    const item = unratedItems[0];
-                    const failed = failedPhotos.has(item);
-                    const { url, pos } = failed
-                      ? { url: `https://picsum.photos/seed/${encodeURIComponent(item)}/700/420`, pos: 'center' }
-                      : getItemPhoto(item);
-                    return (
-                      <img
-                        key={failed ? 'fallback' : 'primary'}
-                        src={url}
-                        alt={item}
-                        draggable={false}
-                        className="w-full h-full object-cover"
-                        style={{ objectPosition: pos, WebkitUserDrag: 'none' } as React.CSSProperties}
-                        onError={() => setFailedPhotos(prev => new Set(prev).add(item))}
-                      />
-                    );
-                  })()}
-                </div>
+              {(() => {
+                const item = unratedItems[0];
+                const IconComponent = getItemIcon(item);
+                const circleColor = activeZone && tierColorMap[activeZone]
+                  ? tierColorMap[activeZone]
+                  : categoryColor;
+                return (
+                  <div
+                    className="touch-none"
+                    style={{
+                      position: 'relative',
+                      zIndex: 10,
+                      borderRadius: 24,
+                      overflow: 'hidden',
+                      background: 'white',
+                      boxShadow: draggingItem ? '0 20px 60px rgba(0,0,0,0.22)' : '0 6px 24px rgba(0,0,0,0.12)',
+                      transform: draggingItem
+                        ? `translate(${dragOffset.x}px, ${dragOffset.y}px) rotate(${dragOffset.x * 0.05}deg)`
+                        : 'none',
+                      transition: draggingItem ? 'box-shadow 0.15s' : 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s',
+                      cursor: draggingItem ? 'grabbing' : 'grab',
+                      WebkitUserSelect: 'none',
+                    }}
+                    onPointerDown={(e) => handlePointerDown(item, e)}
+                  >
+                    {/* Icon banner */}
+                    <div style={{
+                      height: 108,
+                      background: categoryColor + '22',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <div style={{
+                        width: 68,
+                        height: 68,
+                        borderRadius: '50%',
+                        background: circleColor,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: `0 4px 18px ${circleColor}55`,
+                        transition: 'background 0.2s ease, box-shadow 0.2s ease',
+                      }}>
+                        <IconComponent size={32} color="white" weight="regular" />
+                      </div>
+                    </div>
 
-                {/* Text section — tints to zone color */}
-                <div
-                  style={{
-                    background: activeZone && tierColorMap[activeZone]
-                      ? tierColorMap[activeZone] + '50'
-                      : 'white',
-                    transition: 'background 0.2s ease',
-                    padding: '16px 20px 22px',
-                  }}
-                >
-                  <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: categoryColor, filter: 'brightness(0.75)', marginBottom: 6 }}>
-                    {categoryName}
-                  </p>
-                  <h2 style={{ fontSize: 20, fontWeight: 700, color: 'rgba(0,0,0,0.84)', lineHeight: 1.2, marginBottom: 8 }}>
-                    {unratedItems[0]}
-                  </h2>
-                  {SUBCATEGORY_DEFINITIONS[unratedItems[0]] && (
-                    <p style={{ fontSize: 13, lineHeight: 1.55, color: 'rgba(0,0,0,0.45)', fontStyle: 'italic' }}>
-                      {SUBCATEGORY_DEFINITIONS[unratedItems[0]]}
-                    </p>
-                  )}
-                </div>
-              </div>
+                    {/* Text section — tints to zone color */}
+                    <div
+                      style={{
+                        background: activeZone && tierColorMap[activeZone]
+                          ? tierColorMap[activeZone] + '50'
+                          : 'white',
+                        transition: 'background 0.2s ease',
+                        padding: '14px 20px 20px',
+                      }}
+                    >
+                      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: categoryColor, filter: 'brightness(0.75)', marginBottom: 5 }}>
+                        {categoryName}
+                      </p>
+                      <h2 style={{ fontSize: 19, fontWeight: 700, color: 'rgba(0,0,0,0.84)', lineHeight: 1.2, marginBottom: 8 }}>
+                        {item}
+                      </h2>
+                      {SUBCATEGORY_DEFINITIONS[item] && (
+                        <p style={{ fontSize: 13, lineHeight: 1.55, color: 'rgba(0,0,0,0.45)', fontStyle: 'italic' }}>
+                          {SUBCATEGORY_DEFINITIONS[item]}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
