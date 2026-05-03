@@ -190,7 +190,6 @@ export default function ChipPool({
   const [draggingItem, setDraggingItem] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [activeZone, setActiveZone] = useState<string | null>(null);
-  const [showDef, setShowDef] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<string[]>(() => initialRatings.map((r) => r.item));
   const startPos = useRef({ x: 0, y: 0 });
   const isDragging = useRef(false);
@@ -233,12 +232,8 @@ export default function ChipPool({
       if (Math.abs(dx) > MOVE_START || Math.abs(dy) > MOVE_START) {
         isDragging.current = true;
         setDraggingItem(pendingItem.current);
-        // Show definition while dragging
-        if (pendingItem.current && SUBCATEGORY_DEFINITIONS[pendingItem.current]) {
-          setShowDef(pendingItem.current);
-        }
       } else {
-        return; // Not dragging yet, don't move chip
+        return;
       }
     }
 
@@ -256,7 +251,6 @@ export default function ChipPool({
     if (!item) return;
 
     if (isDragging.current && activeZone) {
-      // Completed a drag into a zone
       triggerHaptic('medium');
       setUndoStack((prev) => [...prev, item]);
       setRatings((prev) => {
@@ -264,11 +258,6 @@ export default function ChipPool({
         next.set(item, activeZone);
         return next;
       });
-    } else if (!isDragging.current) {
-      // It was a tap — show definition
-      if (SUBCATEGORY_DEFINITIONS[item]) {
-        setShowDef(item);
-      }
     }
 
     pendingItem.current = null;
@@ -276,7 +265,6 @@ export default function ChipPool({
     setDraggingItem(null);
     setDragOffset({ x: 0, y: 0 });
     setActiveZone(null);
-    setShowDef(null);
     lastZone.current = null;
   };
 
@@ -309,8 +297,6 @@ export default function ChipPool({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
-      {/* Definition tooltip (tap-to-close only, rendered elsewhere for drag) */}
-      {showDef && !draggingItem && <DefinitionTooltip label={showDef} onClose={() => setShowDef(null)} />}
 
       {/* Header */}
       <div className="px-5 pt-5 pb-2 relative z-40" style={{ background: `${categoryColor}28` }}>
@@ -362,114 +348,82 @@ export default function ChipPool({
           />
         ))}
 
-        {/* Card — hidden during drag */}
-        {!draggingItem && (
-          <div
-            className="absolute inset-0 flex items-center justify-center z-10"
-          >
-            <div className="relative" style={{ width: '85%', maxWidth: 340 }}>
-              {(() => {
-                const CLUSTER_SIZE = 4;
-                const clusters: string[][] = [];
-                for (let i = 0; i < unratedItems.length; i += CLUSTER_SIZE) {
-                  clusters.push(unratedItems.slice(i, i + CLUSTER_SIZE));
-                }
-                if (clusters.length === 0) {
-                  const ratingsList = [...ratings.entries()].map(([item, tierId]) => ({ item, tierId }));
-                  return (
-                    <div className="flex flex-col items-center gap-3 py-6">
-                      <p className="text-sm opacity-40">All items sorted!</p>
-                      <button
-                        onClick={() => onComplete(ratingsList)}
-                        className="px-10 py-4 rounded-2xl text-white font-semibold text-lg transition-all hover:opacity-90 active:scale-[0.97]"
-                        style={{
-                          background: `linear-gradient(135deg, ${categoryColor}EE, ${categoryColor}99)`,
-                          boxShadow: `0 4px 20px ${categoryColor}55`,
-                          border: '2px solid rgba(255,255,255,0.4)',
-                        }}
-                      >
-                        Next →
-                      </button>
-                    </div>
-                  );
-                }
-                const topCluster = clusters[0];
-                return (
-                  <div
-                    className="rounded-2xl px-5 py-4 flex flex-wrap gap-2 justify-center"
-                    style={{
-                      background: 'rgba(255,255,255,0.92)',
-                      border: `1.5px solid ${categoryColor}30`,
-                      boxShadow: `0 4px 20px rgba(0,0,0,0.08), 0 2px 8px ${categoryColor}15`,
-                    }}
-                  >
-                    {topCluster.map((item) => (
-                      <button
-                        key={item}
-                        className="px-4 py-2 rounded-full text-base touch-none"
-                        style={{
-                          background: categoryColor + '18',
-                          borderWidth: '1.5px',
-                          borderStyle: 'solid',
-                          borderColor: categoryColor + '30',
-                          color: 'rgba(0,0,0,0.78)',
-                          fontWeight: 600,
-                          boxShadow: `0 2px 8px ${categoryColor}20`,
-                          WebkitUserSelect: 'none',
-                        }}
-                        onPointerDown={(e) => handlePointerDown(item, e)}
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                );
-              })()}
-
-              {/* Definition shown below card when tapped (not dragging) */}
-              {showDef && SUBCATEGORY_DEFINITIONS[showDef] && (
-                <div className="mt-3 px-4 py-2.5 rounded-xl bg-white/90 shadow-lg border border-black/5 backdrop-blur-sm">
-                  <p className="text-xs font-semibold mb-0.5" style={{ color: 'rgba(0,0,0,0.7)' }}>{showDef}</p>
-                  <p className="text-xs leading-relaxed" style={{ color: 'rgba(0,0,0,0.45)' }}>{SUBCATEGORY_DEFINITIONS[showDef]}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* During drag: floating chip + definition in center */}
-        {draggingItem && (
-          <>
-            {/* Definition takes the center spot */}
-            {showDef && SUBCATEGORY_DEFINITIONS[showDef] && (
-              <div className="absolute inset-0 z-15 flex items-center justify-center pointer-events-none">
-                <div
-                  className="px-5 py-3 rounded-2xl bg-white/90 shadow-lg border border-black/5 backdrop-blur-sm"
-                  style={{ width: '80%', maxWidth: 300 }}
-                >
-                  <p className="text-sm font-semibold mb-1" style={{ color: 'rgba(0,0,0,0.7)' }}>{showDef}</p>
-                  <p className="text-xs leading-relaxed" style={{ color: 'rgba(0,0,0,0.45)' }}>{SUBCATEGORY_DEFINITIONS[showDef]}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Dragged chip — big, bold, white background */}
-            <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center">
-              <div
-                className="px-5 py-2.5 rounded-full text-base font-semibold"
+        {/* Card stack */}
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          {unratedItems.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-6">
+              <p className="text-sm opacity-40">All items sorted!</p>
+              <button
+                onClick={handleNext}
+                className="px-10 py-4 rounded-2xl text-white font-semibold text-lg transition-all hover:opacity-90 active:scale-[0.97]"
                 style={{
-                  background: 'rgba(255,255,255,0.95)',
-                  border: `2px solid ${categoryColor}60`,
-                  color: 'rgba(0,0,0,0.75)',
-                  transform: `translate(${dragOffset.x}px, ${dragOffset.y}px) scale(1.15)`,
-                  boxShadow: `0 8px 30px rgba(0,0,0,0.12), 0 4px 15px ${categoryColor}30`,
+                  background: `linear-gradient(135deg, ${categoryColor}EE, ${categoryColor}99)`,
+                  boxShadow: `0 4px 20px ${categoryColor}55`,
+                  border: '2px solid rgba(255,255,255,0.4)',
                 }}
               >
-                {draggingItem}
+                Next →
+              </button>
+            </div>
+          ) : (
+            <div className="relative" style={{ width: '85%', maxWidth: 340 }}>
+              {/* Ghost card 3 */}
+              {unratedItems[2] && (
+                <div
+                  className="absolute inset-0 rounded-2xl bg-white"
+                  style={{
+                    transform: 'translateY(12px) scale(0.91) rotate(-2deg)',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.07)',
+                    opacity: 0.7,
+                  }}
+                />
+              )}
+              {/* Ghost card 2 */}
+              {unratedItems[1] && (
+                <div
+                  className="absolute inset-0 rounded-2xl bg-white"
+                  style={{
+                    transform: 'translateY(6px) scale(0.96) rotate(1deg)',
+                    boxShadow: '0 2px 14px rgba(0,0,0,0.09)',
+                    opacity: 0.85,
+                  }}
+                />
+              )}
+              {/* Top card — draggable */}
+              <div
+                className="relative rounded-2xl bg-white px-6 py-6 touch-none"
+                style={{
+                  boxShadow: draggingItem
+                    ? '0 16px 48px rgba(0,0,0,0.18)'
+                    : '0 4px 20px rgba(0,0,0,0.11)',
+                  transform: draggingItem
+                    ? `translate(${dragOffset.x}px, ${dragOffset.y}px) rotate(${dragOffset.x * 0.06}deg)`
+                    : 'none',
+                  transition: draggingItem ? 'box-shadow 0.15s' : 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s',
+                  cursor: draggingItem ? 'grabbing' : 'grab',
+                  WebkitUserSelect: 'none',
+                  zIndex: 20,
+                }}
+                onPointerDown={(e) => handlePointerDown(unratedItems[0], e)}
+              >
+                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: categoryColor, filter: 'brightness(0.75)', opacity: 0.8 }}>
+                  {categoryName}
+                </p>
+                <h2 className="text-xl font-bold mb-3" style={{ color: 'rgba(0,0,0,0.82)', lineHeight: 1.2 }}>
+                  {unratedItems[0]}
+                </h2>
+                {SUBCATEGORY_DEFINITIONS[unratedItems[0]] && (
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(0,0,0,0.42)', fontStyle: 'italic' }}>
+                    {SUBCATEGORY_DEFINITIONS[unratedItems[0]]}
+                  </p>
+                )}
+                <p className="text-[10px] text-center mt-4" style={{ color: 'rgba(0,0,0,0.2)', letterSpacing: '0.05em' }}>
+                  DRAG TO A CORNER
+                </p>
               </div>
             </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Bottom bar */}
@@ -496,7 +450,7 @@ export default function ChipPool({
           <div className="w-10" />
         )}
         <p className="text-xs text-center" style={{ color: 'rgba(0,0,0,0.45)' }}>
-          {ratedCount > 0 ? `${ratedCount} of ${items.length} sorted` : 'drag to edges · tap for definition'}
+          {ratedCount > 0 ? `${ratedCount} of ${items.length} sorted` : `${items.length} to sort`}
         </p>
         <div className="w-10" />
       </div>
