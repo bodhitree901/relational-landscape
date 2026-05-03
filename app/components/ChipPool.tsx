@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { SUBCATEGORY_DEFINITIONS } from '../lib/definitions';
+import { getItemPhotoUrl } from '../lib/item-photos';
 
 /* ---- Haptic helper ---- */
 function triggerHaptic(style: 'light' | 'medium') {
@@ -390,7 +391,7 @@ export default function ChipPool({
                 {/* Photo */}
                 <div style={{ height: 170, position: 'relative' }}>
                   <img
-                    src={`https://picsum.photos/seed/${encodeURIComponent(unratedItems[0])}/700/420`}
+                    src={getItemPhotoUrl(unratedItems[0])}
                     alt={unratedItems[0]}
                     draggable={false}
                     className="w-full h-full object-cover"
