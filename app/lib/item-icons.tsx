@@ -1,6 +1,6 @@
 import {
   // Life Infrastructure
-  House, Baby, Key, Bed, ForkKnife, Broom, PawPrint, HandHeart, Phone, HandshakeSimple, Briefcase,
+  House, Baby, Key, Bed, ForkKnife, Broom, PawPrint, HandHeart, Phone, Briefcase,
   // Relational Commitment
   LockSimple, Star, ShieldCheck, Flag, SunHorizon, CalendarCheck, MapTrifold, Tag, Mountains,
   FirstAidKit, Heart,
@@ -10,7 +10,7 @@ import {
   HeartStraight, ChatText, MagnifyingGlass, CloudMoon, Drop, Brain, Heartbeat, Anchor, Lock,
   ChatCenteredDots, Handshake, UsersThree, LinkSimple,
   // Physical Intimacy
-  PersonSimple, PersonArmsSpread, Hand, Leaf, Flame, Sparkles, Globe, Link,
+  PersonSimple, PersonArmsSpread, Hand, Leaf, Flame, Fire, Globe, Link,
   // Social Integration
   Users, UserPlus, Tree, UserCheck, ShareNetwork, Ticket, UsersFour,
   // Financial/Legal
@@ -19,7 +19,7 @@ import {
   Microphone, VideoCamera, Newspaper, Smiley, BookOpen, ClipboardText, Eye, Eyeglasses,
   // Time and Rhythms
   Clock, Calendar, Lightning, MapPin, Shuffle, Repeat, CalendarBlank, CalendarDots,
-  CalendarPlus, SquaresFour, Comet,
+  CalendarPlus, SquaresFour, ShootingStar,
   // Tones
   Dog, ArrowsSplit,
 } from '@phosphor-icons/react';
@@ -36,7 +36,7 @@ export const ITEM_ICONS: Record<string, Icon> = {
   'Shared Pets/Plants':           PawPrint,
   'Shared External Caretaking':   HandHeart,
   'Emergency Contact':            Phone,
-  'Mutual Aid':                   HandshakeSimple,
+  'Mutual Aid':                   Handshake,
   'Business Collaborations':      Briefcase,
 
   // ---- Relational Commitment ----
@@ -92,7 +92,7 @@ export const ITEM_ICONS: Record<string, Icon> = {
   'Co-Sleeping':                  Bed,
   'Nudity':                       Leaf,
   'Sensual Interactions':         Flame,
-  'Sexual Interactions':          Sparkles,
+  'Sexual Interactions':          Fire,
   'Public Displays of Affection': Globe,
   'Kink':                         Link,
   'Multiple Sexual Connections':  ArrowsSplit,
@@ -147,7 +147,7 @@ export const ITEM_ICONS: Record<string, Icon> = {
   'Weekly Hangouts':              CalendarBlank,
   'Monthly Hangouts':             CalendarDots,
   'Yearly Hangouts':              CalendarPlus,
-  'Seasonal/Contextual Connecting': Comet,
+  'Seasonal/Contextual Connecting': ShootingStar,
 
   // ---- Tones ----
   'Companionship':                Dog,
@@ -156,7 +156,7 @@ export const ITEM_ICONS: Record<string, Icon> = {
   'Therapeutic':                  Heartbeat,
   'Romantic':                     Heart,
   'Erotic':                       Flame,
-  'Comet/Seasonal':               Comet,
+  'Comet/Seasonal':               ShootingStar,
 };
 
 export function getItemIcon(item: string): Icon {
