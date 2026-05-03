@@ -1,7 +1,7 @@
 export const SUBCATEGORY_DEFINITIONS: Record<string, string> = {
   // ---- Life Infrastructure ----
   'Co-Housing': 'Living together in a shared home with one or more people — sharing daily space, routines, and domestic life',
-  'Sharing a Sleeping Space': 'Regularly sleeping in the same room or bed — beyond just spending the night',
+  'Shared Sleeping Space': 'Regularly sleeping in the same room or bed — beyond just spending the night',
   'Shared Chores': 'Dividing up household tasks together — cleaning, cooking, laundry, taking turns',
   'Shared Meals': 'Regularly eating together — cooking for each other, grocery shopping, meal planning as a unit',
   'Home Ownership': 'Buying or owning property together — a shared investment in physical space and future',
@@ -16,7 +16,7 @@ export const SUBCATEGORY_DEFINITIONS: Record<string, string> = {
   'Future Plans Together': 'Making plans that extend into the future — goals, dreams, logistics that assume ongoing connection',
   'Long-Term Involvement': 'An intention or expectation that the relationship will continue over time — building something lasting',
   'Focusing on the "Here and Now"': 'Choosing to stay present rather than defining the future — enjoying what exists without locking it down',
-  'Prioritization Over Other Partners': 'This relationship takes precedence in scheduling, decisions, or emotional investment',
+  'Prioritization': 'This relationship takes precedence in scheduling, decisions, or emotional investment',
   'Relationship Labels': 'Using words like partner, boyfriend, girlfriend, spouse — naming what you are to each other',
   'Exclusivity': 'Some form of exclusivity — sexual, romantic, or other agreed-upon boundaries around outside connections',
   'Working Through Challenges': 'Willingness to stay and work through difficulty rather than walk away — repair over rupture',
