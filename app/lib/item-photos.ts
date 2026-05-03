@@ -25,7 +25,12 @@ export const ITEM_PHOTOS: Record<string, PhotoEntry> = {
   // ---- Quality Time ----
   'Shared Hobbies or Activities': 'photo-1758691031336-054e6f00acb8',
   'Shared Rituals':             'photo-1564890369478-c89ca6d9cde9',
+  'Activities That Are "Yours"': 'photo-1758874960533-a0925d4f645c',
+  'Parallel Play':              'photo-1565772964002-c315f1ce06bb',
   'Date Nights':                'photo-1622533122617-5d9e02ee6f85',
+  'Celebrating Events or Holidays': 'photo-1764267703523-b58a4da829fc',
+  'Trips Together':             'photo-1548957175-84f0f9af659e',
+  'Creative Collaboration':     'photo-1445375011782-2384686778a0',
 };
 
 export function getItemPhoto(item: string): { url: string; pos: string } {

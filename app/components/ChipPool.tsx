@@ -80,9 +80,16 @@ const SIDE_TO_CORNER: Record<string, string> = {
   left: 'bottom-left',
 };
 
+const CORNER_EXIT: Record<string, string> = {
+  'top-right':    'translate(65%, -65%) scale(0.08) rotate(12deg)',
+  'top-left':     'translate(-65%, -65%) scale(0.08) rotate(-12deg)',
+  'bottom-left':  'translate(-65%, 65%) scale(0.08) rotate(-12deg)',
+  'bottom-right': 'translate(65%, 65%) scale(0.08) rotate(12deg)',
+};
+
 const GAP = 5; // px gap between quadrants and screen edges
 
-function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: TierConfig; active: boolean; corner: string; isDragging: boolean }) {
+function CornerCircle({ tier, active, corner, isDragging: showHints, popped }: { tier: TierConfig; active: boolean; corner: string; isDragging: boolean; popped?: boolean }) {
   // Rounded rectangles with a small gap — like the reference Eisenhower matrix
   const quadrantStyle: Record<string, React.CSSProperties> = {
     'top-left':     { top: GAP, left: GAP, right: `calc(50% + ${GAP / 2}px)`, bottom: `calc(50% + ${GAP / 2}px)` },
@@ -113,9 +120,8 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
   };
   const lines = labelLines[tier.label] || [tier.label];
 
-  const scale = active ? 1.05 : 1;
-  // Pastel at rest, fuller when active
-  const fillOpacity = active ? 0.55 : showHints ? 0.45 : 0.32;
+  const scale = popped ? 1.35 : active ? 1.05 : 1;
+  const fillOpacity = popped ? 0.72 : active ? 0.55 : showHints ? 0.45 : 0.32;
 
   return (
     <>
@@ -147,18 +153,20 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
         >
           {lines.map((line, i) => {
             const isOrLine = i === lines.length - 1 && tier.label === 'Not Available For';
+            const size = popped ? 15 : active ? 14 : 12;
             return (
               <div
                 key={i}
                 style={{
                   color: tier.color,
                   fontWeight: isOrLine ? 500 : 800,
-                  fontSize: isOrLine ? (active ? 11 : 9) : (active ? 14 : 12),
+                  fontSize: isOrLine ? size - 3 : size,
                   lineHeight: 1.25,
                   letterSpacing: '0.06em',
                   textTransform: 'uppercase',
                   filter: 'brightness(0.65)',
                   opacity: isOrLine ? 0.65 : 1,
+                  transition: 'font-size 0.2s ease-out',
                 }}
               >
                 {line}
@@ -168,6 +176,40 @@ function CornerCircle({ tier, active, corner, isDragging: showHints }: { tier: T
         </div>
       </div>
     </>
+  );
+}
+
+/* ---- Exiting card animation ---- */
+function ExitingCard({ item, exitTransform, categoryName, categoryColor }: {
+  item: string; exitTransform: string; categoryName: string; categoryColor: string;
+}) {
+  const [active, setActive] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setActive(true)));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  const { url, pos } = getItemPhoto(item);
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 25, borderRadius: 24, overflow: 'hidden',
+      transform: active ? exitTransform : 'none',
+      opacity: active ? 0 : 1,
+      transition: active ? 'transform 0.38s cubic-bezier(0.55,0,1,0.45), opacity 0.28s ease-out' : 'none',
+      pointerEvents: 'none',
+    }}>
+      <div style={{ height: 170 }}>
+        <img src={url} alt={item} draggable={false}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: pos }} />
+      </div>
+      <div style={{ padding: '16px 20px 22px', background: 'white' }}>
+        <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: categoryColor, filter: 'brightness(0.75)', marginBottom: 6 }}>
+          {categoryName}
+        </p>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: 'rgba(0,0,0,0.84)', lineHeight: 1.2 }}>
+          {item}
+        </h2>
+      </div>
+    </div>
   );
 }
 
@@ -259,6 +301,13 @@ export default function ChipPool({
         next.set(item, activeZone);
         return next;
       });
+      // B: card flies to corner
+      const corner = SIDE_TO_CORNER[tiers.find(t => t.id === activeZone)?.side ?? 'right'];
+      setExitingCard({ item, exitTransform: CORNER_EXIT[corner] });
+      setTimeout(() => setExitingCard(null), 420);
+      // D: zone label pops
+      setPoppedZone(activeZone);
+      setTimeout(() => setPoppedZone(null), 650);
     }
 
     pendingItem.current = null;
@@ -289,6 +338,8 @@ export default function ChipPool({
   };
 
   const [failedPhotos, setFailedPhotos] = useState<Set<string>>(new Set());
+  const [exitingCard, setExitingCard] = useState<{ item: string; exitTransform: string } | null>(null);
+  const [poppedZone, setPoppedZone] = useState<string | null>(null);
 
   const ratedCount = ratings.size;
   const unratedItems = items.filter((item) => !ratings.has(item));
@@ -349,6 +400,7 @@ export default function ChipPool({
             active={activeZone === tier.id}
             corner={SIDE_TO_CORNER[tier.side]}
             isDragging={!!draggingItem}
+            popped={poppedZone === tier.id}
           />
         ))}
 
@@ -371,6 +423,16 @@ export default function ChipPool({
             </div>
           ) : (
             <div className="relative" style={{ width: '80%', maxWidth: 320 }}>
+
+              {/* Exit animation overlay */}
+              {exitingCard && (
+                <ExitingCard
+                  item={exitingCard.item}
+                  exitTransform={exitingCard.exitTransform}
+                  categoryName={categoryName}
+                  categoryColor={categoryColor}
+                />
+              )}
 
               {/* Whole card drags together */}
               <div
