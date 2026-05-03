@@ -14,7 +14,7 @@ import {
   // Social Integration
   Users, UserPlus, Tree, UserCheck, ShareNetwork, Ticket, UsersFour,
   // Financial/Legal
-  Gift, Receipt, CurrencyDollar, TrendUp, Bank, Scales, Ring, HandCoins, PiggyBank,
+  Gift, Receipt, CurrencyDollar, TrendUp, Bank, Scales, Diamond, HandCoins, PiggyBank,
   // Communication
   Microphone, VideoCamera, Newspaper, Smiley, BookOpen, ClipboardText, Eye, Eyeglasses,
   // Time and Rhythms
@@ -119,7 +119,7 @@ export const ITEM_ICONS: Record<string, Icon> = {
   'Financial Integration':        TrendUp,
   'Shared Bank Account(s)':       PiggyBank,
   'Legal Processes':              Scales,
-  'Marriage/Civil Partnership':   Ring,
+  'Marriage/Civil Partnership':   Diamond,
 
   // ---- Communication ----
   'Texting':                      ChatText,
