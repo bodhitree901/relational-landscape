@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { SUBCATEGORY_DEFINITIONS } from '../lib/definitions';
-import { getItemIcon } from '../lib/item-icons';
+import { getItemIllustration } from '../lib/item-illustrations';
 
 /* ---- Haptic helper ---- */
 function triggerHaptic(style: 'light' | 'medium' | 'sort') {
@@ -197,28 +197,23 @@ function ExitingCard({ item, zoneColor, categoryName, categoryColor }: {
     ? 'transform 0.14s cubic-bezier(0.55,0,1,1), opacity 0.12s ease-in'
     : 'none';
 
-  const IconComponent = getItemIcon(item);
-  const circleColor = phase === 1 ? zoneColor : categoryColor;
+  const Illustration = getItemIllustration(item);
+  const overlayBg = phase === 1
+    ? `linear-gradient(to top, ${zoneColor}EE 55%, ${zoneColor}33)`
+    : 'linear-gradient(to top, rgba(255,255,255,0.97) 55%, rgba(255,255,255,0))';
   return (
     <div style={{
       position: 'absolute', inset: 0, zIndex: 25, borderRadius: 24, overflow: 'hidden',
       background: 'white', transform, opacity, transition,
       pointerEvents: 'none',
     }}>
+      <Illustration color={categoryColor} />
       <div style={{
-        height: 108, background: categoryColor + '22',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        padding: '50px 20px 22px',
+        background: overlayBg,
+        transition: 'background 0.2s ease',
       }}>
-        <div style={{
-          width: 68, height: 68, borderRadius: '50%',
-          background: circleColor,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: `0 4px 18px ${categoryColor}50`,
-        }}>
-          <IconComponent size={32} color="white" weight="regular" />
-        </div>
-      </div>
-      <div style={{ padding: '14px 20px 20px', background: phase === 1 ? zoneColor + '50' : 'white' }}>
         <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: categoryColor, filter: 'brightness(0.75)', marginBottom: 5 }}>
           {categoryName}
         </p>
@@ -452,10 +447,11 @@ export default function ChipPool({
               {/* Whole card drags together */}
               {(() => {
                 const item = unratedItems[0];
-                const IconComponent = getItemIcon(item);
-                const circleColor = activeZone && tierColorMap[activeZone]
-                  ? tierColorMap[activeZone]
-                  : categoryColor;
+                const Illustration = getItemIllustration(item);
+                const zoneColor = activeZone && tierColorMap[activeZone] ? tierColorMap[activeZone] : null;
+                const overlayBg = zoneColor
+                  ? `linear-gradient(to top, ${zoneColor}EE 55%, ${zoneColor}33)`
+                  : 'linear-gradient(to top, rgba(255,255,255,0.97) 55%, rgba(255,255,255,0))';
                 return (
                   <div
                     className="touch-none"
@@ -465,6 +461,7 @@ export default function ChipPool({
                       borderRadius: 24,
                       overflow: 'hidden',
                       background: 'white',
+                      height: 380,
                       boxShadow: draggingItem ? '0 20px 60px rgba(0,0,0,0.22)' : '0 6px 24px rgba(0,0,0,0.12)',
                       transform: draggingItem
                         ? `translate(${dragOffset.x}px, ${dragOffset.y}px) rotate(${dragOffset.x * 0.05}deg)`
@@ -475,37 +472,19 @@ export default function ChipPool({
                     }}
                     onPointerDown={(e) => handlePointerDown(item, e)}
                   >
-                    {/* Icon banner */}
-                    <div style={{
-                      height: 108,
-                      background: categoryColor + '22',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                      <div style={{
-                        width: 68,
-                        height: 68,
-                        borderRadius: '50%',
-                        background: circleColor,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: `0 4px 18px ${circleColor}55`,
-                        transition: 'background 0.2s ease, box-shadow 0.2s ease',
-                      }}>
-                        <IconComponent size={32} color="white" weight="regular" />
-                      </div>
-                    </div>
+                    {/* Full-bleed illustration */}
+                    <Illustration color={categoryColor} />
 
-                    {/* Text section — tints to zone color */}
+                    {/* Text overlay at bottom — tints to zone color */}
                     <div
                       style={{
-                        background: activeZone && tierColorMap[activeZone]
-                          ? tierColorMap[activeZone] + '50'
-                          : 'white',
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        padding: '50px 20px 22px',
+                        background: overlayBg,
                         transition: 'background 0.2s ease',
-                        padding: '14px 20px 20px',
                       }}
                     >
                       <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: categoryColor, filter: 'brightness(0.75)', marginBottom: 5 }}>
@@ -515,7 +494,7 @@ export default function ChipPool({
                         {item}
                       </h2>
                       {SUBCATEGORY_DEFINITIONS[item] && (
-                        <p style={{ fontSize: 13, lineHeight: 1.55, color: 'rgba(0,0,0,0.45)', fontStyle: 'italic' }}>
+                        <p style={{ fontSize: 13, lineHeight: 1.55, color: 'rgba(0,0,0,0.55)', fontStyle: 'italic' }}>
                           {SUBCATEGORY_DEFINITIONS[item]}
                         </p>
                       )}
